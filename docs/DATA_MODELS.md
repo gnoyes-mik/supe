@@ -154,6 +154,11 @@ interface UniverseProgress {
   lastCommitMessage: string;
   lastActivityAt: string;         // ISO 8601
   estimatedCostUsd: number;
+  criteriaProgress: {
+    criterion: string;
+    status: 'not_started' | 'in_progress' | 'likely_done' | 'verified';
+    evidence: string;
+  }[];
 }
 ```
 
@@ -245,6 +250,42 @@ type PollenTargetStatus =
   | 'adapted'      // 변형되어 적용됨
   | 'rejected'     // 관련성 낮아 주입 안 함
   | 'skipped';     // 타이밍 제한으로 이번 Cycle에서 스킵
+```
+
+---
+
+## Iteration & Diversity Types
+
+### IterationContext
+
+UniverseRunner가 매 iteration 시작 전에 구성하는 컨텍스트. 동적 프롬프트 생성에 사용된다.
+
+```typescript
+interface IterationContext {
+  iterationNumber: number;
+  previousResult: 'success' | 'failed' | 'first';
+  criteriaStatus: { criterion: string; met: boolean }[];
+  pendingPollens: Pollen[];  // Pollen Engine이 주입했으나 아직 에이전트에게 보여주지 않은 Pollen
+  filesCount: number;
+  commitsCount: number;
+}
+```
+
+### DiversityCheck
+
+Spec Parser의 다양성 검증 단계에서 반환되는 결과.
+
+```typescript
+interface DiversityCheck {
+  isDiverse: boolean;
+  overlapScore: number;           // 0.0 = 완전 직교, 1.0 = 동일
+  problematicPairs: {
+    a: string;                    // 접근법 이름
+    b: string;                    // 접근법 이름
+    reason: string;               // 겹치는 이유
+  }[];
+  suggestions: string[];          // 다양성 개선을 위한 구체적 제안
+}
 ```
 
 ---

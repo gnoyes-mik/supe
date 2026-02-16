@@ -126,6 +126,14 @@ Other approaches are optimizing for different axes. Focus on yours.
 3. Create a README.md explaining what you built and how to use it.
 4. If you encounter a blocker, document it in BLOCKERS.md and move on to the next task.
 5. When all success criteria are met, create a file called DONE.md with a summary of what was accomplished.
+6. Track pollen adoption: If you receive cross-pollination hints (in your prompt or in the Cross-Pollination Hints section below), record your decision in POLLEN_RESPONSE.md using this format:
+   ## [pollen_id]: [title]
+   - Decision: APPLIED | ADAPTED | SKIPPED
+   - How/Reason: [explanation]
+7. Share discoveries: If you find something that could help OTHER approaches to the same problem, write it to DISCOVERY.md:
+   ## [Title]
+   [2-5 sentences, approach-agnostic]
+   Type: pattern | data | strategy | warning
 
 ## Completion Signal
 When you believe all work is complete, create a file named `DONE.md` at the project root.
@@ -178,8 +186,11 @@ async start(universe: Universe): Promise<void> {
     // 종료 조건 확인
     if (await this.shouldStop(universe)) break;
 
-    // 에이전트 1회 실행
-    await this.runAgentIteration(universe);
+    // IterationContext 구성
+    const context = await this.buildIterationContext(universe);
+
+    // 에이전트 1회 실행 (동적 프롬프트 포함)
+    await this.runAgentIteration(universe, context);
 
     // 진행상황 업데이트
     await this.updateProgress(universe);
@@ -208,14 +219,91 @@ async start(universe: Universe): Promise<void> {
 }
 ```
 
+### IterationContext 구성 (`buildIterationContext`)
+
+매 iteration 전에 호출. 현재 Universe 상태에서 IterationContext를 구성한다.
+
+```typescript
+async buildIterationContext(universe: Universe): Promise<IterationContext> {
+  const git = simpleGit(universe.workdir);
+  const log = await git.log();
+  const files = await git.raw(['ls-files']);
+  const filesCount = files.trim().split('\n').filter(Boolean).length;
+  const iterationNumber = universe.agentProcess.iterationCount + 1;
+
+  // 이전 iteration 결과 판단
+  let previousResult: 'success' | 'failed' | 'first' = 'first';
+  if (iterationNumber > 1) {
+    previousResult = universe.restartCount > 0 ? 'failed' : 'success';
+  }
+
+  // 기준 달성 현황: 매 3회 iteration마다 LLM으로 평가, 그 외에는 마지막 평가 결과 사용
+  let criteriaStatus = universe._lastCriteriaStatus ?? 
+    this.session.spec.parsed.successCriteria.map(c => ({ criterion: c, met: false }));
+  
+  if (iterationNumber % 3 === 0 || iterationNumber === 1) {
+    criteriaStatus = await this.assessCriteriaProgress(universe);
+    universe._lastCriteriaStatus = criteriaStatus;
+  }
+
+  // Pollen Engine이 주입한 pending pollens 수집 후 큐 비움
+  const pendingPollens = universe.pendingPollens ?? [];
+  universe.pendingPollens = [];
+
+  return {
+    iterationNumber,
+    previousResult,
+    criteriaStatus,
+    pendingPollens,
+    filesCount,
+    commitsCount: log.total,
+  };
+}
+```
+
+### 기준 달성 평가 (`assessCriteriaProgress`)
+
+LLM을 사용하여 현재 Universe의 성공 기준 달성 현황을 평가한다. 비용 절감을 위해 매 3회 iteration마다만 호출된다.
+
+```typescript
+async assessCriteriaProgress(universe: Universe): Promise<{ criterion: string; met: boolean }[]> {
+  const git = simpleGit(universe.workdir);
+  const files = await git.raw(['ls-files']);
+  const recentLog = await git.log({ maxCount: 10 });
+  const commitMessages = recentLog.all.map(c => c.message).join('\n');
+  
+  const prompt = `
+You are evaluating progress on a project.
+
+## Success Criteria
+${this.session.spec.parsed.successCriteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+## Current State
+- Files in project: ${files.trim().split('\n').filter(Boolean).join(', ')}
+- Recent commits:
+${commitMessages}
+
+## Task
+For each success criterion, determine if it appears to be MET based on the file names and commit history.
+Respond with a JSON array (no markdown fencing):
+[
+  { "criterion": "...", "met": true/false }
+]
+`;
+
+  const response = await this.llm.analyze(prompt);
+  return JSON.parse(response);
+}
+```
+
 ### 에이전트 1회 실행 (`runAgentIteration`)
 
 ```typescript
-async runAgentIteration(universe: Universe): Promise<void> {
+async runAgentIteration(universe: Universe, context: IterationContext): Promise<void> {
   const agentConfig = this.getAgentConfig(universe.config.agent);
   
-  // 에이전트 실행 인자 구성
-  const args = this.buildAgentArgs(agentConfig, universe);
+  // 에이전트 실행 인자 구성 (동적 프롬프트 포함)
+  const args = this.buildAgentArgs(agentConfig, universe, context);
   
   // 프로세스 spawn
   const proc = spawn(agentConfig.command, args, {
@@ -265,22 +353,35 @@ async runAgentIteration(universe: Universe): Promise<void> {
 }
 ```
 
-### 에이전트 인자 구성 (`buildAgentArgs`)
+### IterationContext
+
+각 iteration 시작 전에 구성되는 컨텍스트 객체. 에이전트에게 전달할 동적 프롬프트를 생성하는 데 사용된다.
 
 ```typescript
-buildAgentArgs(agentConfig: AgentConfig, universe: Universe): string[] {
+interface IterationContext {
+  iterationNumber: number;
+  previousResult: 'success' | 'failed' | 'first';
+  criteriaStatus: { criterion: string; met: boolean }[];
+  pendingPollens: Pollen[];  // injected but not yet shown to agent
+  filesCount: number;
+  commitsCount: number;
+}
+```
+
+### 에이전트 인자 구성 (`buildAgentArgs`)
+
+기존 정적 프롬프트 대신, iteration 컨텍스트를 반영한 동적 프롬프트를 생성한다.
+
+```typescript
+buildAgentArgs(agentConfig: AgentConfig, universe: Universe, context: IterationContext): string[] {
   const agent = universe.config.agent;
+  const prompt = buildIterationPrompt(universe, context);
   
   if (agent === 'claude') {
-    // Claude Code: PROMPT.md의 내용을 stdin으로 전달하는 대신
-    // --print 모드로 PROMPT.md를 참조하여 실행
     return [
       ...agentConfig.args,           // ["--dangerously-skip-permissions"]
       '--print',                      // non-interactive 모드
-      `Read PROMPT.md and continue working on the project. 
-       Check what has been done so far (look at existing files and git log).
-       Continue from where you left off. 
-       If all success criteria are met, create DONE.md.`
+      prompt
     ];
   }
   
@@ -288,13 +389,60 @@ buildAgentArgs(agentConfig: AgentConfig, universe: Universe): string[] {
     return [
       ...agentConfig.args,
       '--prompt',
-      `Read PROMPT.md and continue working on the project.
-       Check what has been done so far. Continue from where you left off.
-       If all success criteria are met, create DONE.md.`
+      prompt
     ];
   }
   
   throw new Error(`Unknown agent type: ${agent}`);
+}
+```
+
+### 동적 프롬프트 생성 (`buildIterationPrompt`)
+
+iteration마다 에이전트에게 전달하는 프롬프트를 동적으로 구성한다. 이전 결과, 기준 달성 현황, 수신한 Pollen 등을 포함한다.
+
+```typescript
+function buildIterationPrompt(universe: Universe, context: IterationContext): string {
+  const lines: string[] = [
+    'Read PROMPT.md and continue working on the project.',
+    'Check what has been done so far (look at existing files and git log).',
+    '',
+    '[ITERATION CONTEXT]',
+    `- This is iteration ${context.iterationNumber}. Previous iteration: ${context.previousResult}.`,
+    `- Files: ${context.filesCount}, Commits: ${context.commitsCount}.`,
+    '- Criteria progress:'
+  ];
+
+  for (const c of context.criteriaStatus) {
+    const icon = c.met ? '✅' : '□';
+    lines.push(`  ${icon} ${c.criterion}`);
+  }
+  lines.push('- Focus on unchecked criteria.');
+
+  // Cross-Pollination Alert (pending pollens from Pollen Engine)
+  if (context.pendingPollens.length > 0) {
+    lines.push('');
+    lines.push('[CROSS-POLLINATION ALERT]');
+    for (const pollen of context.pendingPollens) {
+      lines.push(`Universe ${pollen.sourceSymbol} discovered: "${pollen.title}"`);
+      lines.push(`> ${pollen.insight}`);
+    }
+    lines.push('→ If useful, adopt and note in POLLEN_RESPONSE.md');
+    lines.push('→ If not relevant, briefly note why in POLLEN_RESPONSE.md');
+  }
+
+  // Discovery encouragement
+  lines.push('');
+  lines.push('[DISCOVERY]');
+  lines.push('If you find a reusable insight (approach-agnostic pattern/warning/data),');
+  lines.push('write it to DISCOVERY.md in this format:');
+  lines.push('## {Title}');
+  lines.push('{2-5 sentences describing the insight at pattern level}');
+  lines.push('Type: pattern | data | strategy | warning');
+  lines.push('');
+  lines.push('If all success criteria are met, create DONE.md with a summary.');
+
+  return lines.join('\n');
 }
 ```
 

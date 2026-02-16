@@ -75,19 +75,45 @@ analyzeUniverse(universe: Universe): Promise<Pollen[]>
 
 1. lastScanCommitHash === currentCommitHash 이면 → 변경 없음, 빈 배열 반환
 
-2. git diff를 수집:
+2. DISCOVERY.md-first 접근:
+   a. universe.workdir/DISCOVERY.md 파일 존재 여부 확인
+   b. DISCOVERY.md가 존재하고, 마지막 스캔 이후 새 엔트리가 있으면:
+      - 새 엔트리를 직접 Pollen 후보로 사용 (LLM diff 분석 스킵)
+      - DISCOVERY.md 파싱: ## 제목 → title, 본문 → insight, Type: 라인 → type
+      - 마지막 스캔 위치를 업데이트 (다음 Cycle에서 중복 방지)
+   c. DISCOVERY.md가 없거나 새 엔트리가 없으면 → 아래 3번 fallback으로 진행
+
+3. Fallback: git diff LLM 분석:
    simple-git을 사용하여 lastScanCommitHash..currentCommitHash의 diff 취득
    diff가 너무 크면 (10,000자 초과) → git log --oneline로 커밋 메시지 목록 + 
    변경된 파일 목록으로 대체
-
-3. LLM 호출 (분석):
-   아래 프롬프트로 분석 요청 → JSON 배열 응답
+   LLM 호출 (분석): 아래 프롬프트로 분석 요청 → JSON 배열 응답
 
 4. 응답을 Pollen 객체로 변환
 
 5. lastScanCommitHash를 currentCommitHash로 업데이트
 
 6. Pollen[] 반환
+```
+
+### DISCOVERY.md-first 전략
+
+에이전트가 직접 작성한 DISCOVERY.md를 우선 활용함으로써:
+- **LLM 호출 절감**: 에이전트가 이미 인사이트를 정리했으므로 diff 분석 LLM 호출 불필요
+- **정확도 향상**: 에이전트 자신이 "이것이 범용적 인사이트"라고 명시적으로 판단한 내용이므로, LLM이 diff에서 추측하는 것보다 정확
+
+DISCOVERY.md 예상 포맷:
+```markdown
+## Hybrid Rate Limiter Pattern
+Combining sliding window with token bucket creates superior burst handling.
+The key insight is to use the sliding window for rate calculation but token bucket for actual enforcement.
+This decouples measurement from enforcement, allowing independent tuning.
+Type: pattern
+
+## Data Normalization Warning
+Input data with mixed encodings causes silent truncation in downstream processing.
+Always normalize to UTF-8 at the ingestion boundary, not at each processing stage.
+Type: warning
 ```
 
 ### LLM 프롬프트 (Analyst)
@@ -169,12 +195,16 @@ for each target in targets:
 
   3. relevance가 'low'이면 → status: 'rejected', rejectionReason 기록, 다음 target으로
 
-  4. relevance가 'medium' 또는 'high'이면 → PROMPT.md에 주입:
-     a. target Universe의 PROMPT.md 파일을 읽는다
-     b. "## Cross-Pollination Hints" 섹션을 찾는다 (없으면 생성)
-     c. 새 Pollen 힌트를 추가한다
-     d. PROMPT.md를 저장한다
-     e. status: 'injected'로 업데이트
+  4. relevance가 'medium' 또는 'high'이면 → PROMPT.md에 주입 + Active Injection:
+      a. target Universe의 PROMPT.md 파일을 읽는다
+      b. "## Cross-Pollination Hints" 섹션을 찾는다 (없으면 생성)
+      c. 새 Pollen 힌트를 추가한다
+      d. PROMPT.md를 저장한다
+      e. **Active Injection**: `target.pendingPollens` 큐에 Pollen을 추가한다
+         - UniverseRunner가 다음 iteration 프롬프트 구성 시 이 큐를 읽어서
+           에이전트의 직접 프롬프트에 [CROSS-POLLINATION ALERT]로 포함한다
+         - 이를 통해 에이전트가 PROMPT.md를 다시 읽지 않아도 Pollen을 인지할 수 있다
+      f. status: 'injected'로 업데이트
 
   5. 이벤트 발행: 'pollen:injected' 또는 'pollen:rejected'
 ```
@@ -255,51 +285,73 @@ your rate limiter. Adapt to your stack and architecture.
 
 ### 처리 흐름
 
+LLM 호출 대신 POLLEN_RESPONSE.md 파일 파싱으로 적용 여부를 판단한다. 이를 통해 Tracker의 LLM 호출을 **완전히 제거**한다.
+
 ```
 trackAdoption(pollen: Pollen, target: Universe): Promise<void>
 
-1. 마지막 주입 이후 target Universe의 git diff를 수집
+1. target Universe의 workdir에서 POLLEN_RESPONSE.md 파일을 읽는다
+   - 파일이 없으면 → status 유지 ('injected'), cyclesMissing 카운터 증가
 
-2. LLM 호출: diff 내에 Pollen의 인사이트가 반영되었는지 판단
+2. POLLEN_RESPONSE.md에서 해당 pollen.id 섹션을 파싱한다
+   예상 포맷:
+   ## {pollen_id}: {title}
+   - Decision: APPLIED | ADAPTED | SKIPPED
+   - How: {description if applied/adapted}
+   - Reason: {reason if skipped}
 
-3. 결과에 따라 PollenTarget 상태 업데이트:
-   - 반영됨 (원본과 동일한 방식): status → 'applied'
-   - 반영됨 (변형되어): status → 'adapted', mutation 필드에 변형 설명
-   - 반영 안 됨: status 유지 ('injected'), 다음 Cycle에서 재확인
-     (2 Cycle 연속 미반영이면 → 'rejected'로 처리, rejectionReason: "Not adopted after 2 cycles")
+3. 파싱 결과에 따라 PollenTarget 상태 업데이트:
+   - Decision이 APPLIED → status: 'applied', evidence에 How 내용 기록
+   - Decision이 ADAPTED → status: 'adapted', mutation에 How 내용 기록
+   - Decision이 SKIPPED → status: 'rejected', rejectionReason에 Reason 내용 기록
+   - pollen.id가 POLLEN_RESPONSE.md에 없음 → status 유지 ('injected'),
+     cyclesMissing 카운터 증가
+   - cyclesMissing >= 2 → status: 'rejected', 
+     rejectionReason: "Not mentioned in POLLEN_RESPONSE.md after 2 cycles"
 
-4. 이벤트 발행: 'pollen:applied' 또는 유지
+4. 이벤트 발행: 'pollen:applied', 'pollen:rejected', 또는 유지
 ```
 
-### LLM 프롬프트 (적용 추적)
+### POLLEN_RESPONSE.md 파싱 로직
 
-```
-You are tracking whether an insight was adopted by a parallel exploration.
+```typescript
+interface PollenResponse {
+  pollenId: string;
+  title: string;
+  decision: 'APPLIED' | 'ADAPTED' | 'SKIPPED';
+  description: string | null;  // How (APPLIED/ADAPTED) or Reason (SKIPPED)
+}
 
-## Insight that was shared
-ID: ${pollen.id}
-Title: ${pollen.title}
-${pollen.insight}
-
-## Changes in target Universe (${target.config.symbol}) since the insight was shared
-${diffSinceInjection}
-
-## Question
-Was this insight reflected in the recent changes?
-
-Rules:
-- "applied": The insight was adopted as-is (same pattern, same approach)
-- "adapted": The insight was adopted but transformed to fit the target's approach
-  (describe the transformation in "mutation")
-- "not_found": No evidence of this insight in the changes
-
-Respond with a JSON object (no markdown fencing):
-{
-  "status": "applied | adapted | not_found",
-  "mutation": "Description of how it was transformed (only if adapted, else null)",
-  "evidence": "Brief quote or reference from the diff that shows adoption (only if applied/adapted, else null)"
+function parsePollenResponse(content: string): PollenResponse[] {
+  const sections = content.split(/^## /m).filter(Boolean);
+  return sections.map(section => {
+    const [header, ...lines] = section.split('\n');
+    const [pollenId, ...titleParts] = header.split(':');
+    const title = titleParts.join(':').trim();
+    
+    const decisionLine = lines.find(l => l.startsWith('- Decision:'));
+    const decision = decisionLine?.replace('- Decision:', '').trim() as PollenResponse['decision'];
+    
+    const howLine = lines.find(l => l.startsWith('- How:'));
+    const reasonLine = lines.find(l => l.startsWith('- Reason:'));
+    const description = howLine?.replace('- How:', '').trim() 
+      ?? reasonLine?.replace('- Reason:', '').trim() 
+      ?? null;
+    
+    return { pollenId: pollenId.trim(), title, decision, description };
+  });
 }
 ```
+
+### 기존 LLM 기반 추적과의 비교
+
+| 항목 | 기존 (LLM 기반) | 변경 (파일 파싱) |
+|------|-----------------|-----------------|
+| LLM 호출 | Cycle당 I회 (injected Pollen 수) | **0회** |
+| 정확도 | LLM 추론에 의존 (false positive 가능) | 에이전트 자기 보고 (명시적) |
+| 비용 | Sonnet 호출 비용 | 없음 |
+| 의존성 | git diff + LLM | POLLEN_RESPONSE.md 파일만 |
+| fallback | - | 파일 없으면 2 Cycle 후 'rejected' |
 
 ---
 

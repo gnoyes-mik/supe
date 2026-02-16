@@ -137,12 +137,56 @@ Session (EventEmitter)
    - 각 접근법: 이름, 전략 요약, 사용 도구/스택, 에이전트 할당, 예상 강점/약점
    - 핵심: 랜덤이 아닌, **스펙의 제약 조건을 다른 축으로 최적화**하는 분기
 
+3. **다양성 검증** (LLM 호출 1회):
+   - 생성된 N개 접근법의 직교성을 평가
+   - overlapScore > 0.5이면 suggestions를 반영하여 2번을 1회 재시도
+   - 최대 1회 재시도 후 결과 수용
+
 **출력**: `ParsedSpec` + `UniverseConfig[]` (DATA_MODELS.md 참조)
 
 **LLM 프롬프트 전략**:
 - Spec 파싱 프롬프트에는 JSON 출력 스키마를 명시적으로 제공
 - Universe 분기 생성 프롬프트에는 "각 Universe가 서로 다른 축을 최적화하도록" 명시
 - 예: 속도 최적화 vs 기능 최대화 vs 비용 최소화 vs 확장성 우선
+
+**다양성 검증 LLM 프롬프트**:
+
+```
+You are evaluating the diversity of parallel exploration approaches.
+
+## Problem
+${parsedSpec.problemStatement}
+
+## Generated Approaches
+${universeConfigs.map((u, i) => `
+### Approach ${i + 1}: ${u.name}
+- Strategy: ${u.approach}
+- Optimization Axis: ${u.optimizationAxis}
+- Tools: ${u.tools.join(', ')}
+`).join('\n')}
+
+## Task
+Evaluate how ORTHOGONAL (independent/diverse) these approaches are.
+
+Two approaches are NOT orthogonal if:
+- They use the same core strategy with minor tool variations
+- They optimize for the same axis but phrase it differently
+- Their expected outputs would be nearly identical
+
+Respond with a JSON object (no markdown fencing):
+{
+  "isDiverse": true/false,
+  "overlapScore": 0.0-1.0,  // 0 = perfectly orthogonal, 1 = identical
+  "problematicPairs": [
+    { "a": "approach name", "b": "approach name", "reason": "why they overlap" }
+  ],
+  "suggestions": [
+    "Specific suggestion to make approach X more distinct"
+  ]
+}
+```
+
+다양성 검증 결과 타입: `DiversityCheck` (DATA_MODELS.md 참조)
 
 ### 3. Orchestrator (`src/core/orchestrator.ts`)
 
