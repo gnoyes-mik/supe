@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { spawn } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import { mkdir, writeFile, access } from 'fs/promises';
 import { appendFileSync } from 'fs';
 import { join } from 'path';
@@ -33,6 +33,7 @@ export class UniverseRunner {
   private session: Session;
   private agentConfigs: Record<string, AgentConfig>;
   private stopRequested = false;
+  private currentProc: ChildProcess | null = null;
 
   constructor(
     emitter: EventEmitter,
@@ -118,6 +119,9 @@ export class UniverseRunner {
 
   requestStop(): void {
     this.stopRequested = true;
+    if (this.currentProc) {
+      this.currentProc.kill('SIGTERM');
+    }
   }
 
   private async buildIterationContext(
@@ -207,6 +211,7 @@ export class UniverseRunner {
       env: { ...process.env },
     });
 
+    this.currentProc = proc;
     universe.agentProcess.pid = proc.pid ?? null;
     universe.agentProcess.iterationCount++;
     universe.agentProcess.lastIterationAt = new Date().toISOString();
@@ -235,6 +240,8 @@ export class UniverseRunner {
       proc.on('close', (code) => resolve(code ?? 1));
       proc.on('error', () => resolve(1));
     });
+
+    this.currentProc = null;
 
     this.appendLog(universe, {
       level: exitCode === 0 ? 'info' : 'warn',

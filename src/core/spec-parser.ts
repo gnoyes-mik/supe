@@ -270,7 +270,7 @@ function normalizeDiversityCheck(raw: DiversityCheckResponse): DiversityCheck {
   const isDiverse = toBoolean(raw.isDiverse, 'isDiverse');
   const overlapScore = toOverlapScore(raw.overlapScore);
   const problematicPairs = toProblematicPairs(raw.problematicPairs);
-  const suggestions = toStringArray(raw.suggestions, 'suggestions');
+  const suggestions = toOptionalStringArray(raw.suggestions);
 
   return {
     isDiverse,
@@ -309,6 +309,17 @@ function toStringArray(value: unknown, field: string): string[] {
   }
 
   return values;
+}
+
+function toOptionalStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim())
+    .filter(item => item.length > 0);
 }
 
 function toSpecDomain(value: unknown): SpecDomain {

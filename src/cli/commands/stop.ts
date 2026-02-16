@@ -21,6 +21,18 @@ export async function stopCommand(sessionId?: string): Promise<void> {
     sessionManager.updateStatus(session, 'cancelled');
     await sessionManager.saveSession(session);
 
+    // Kill running agent processes
+    for (const universe of session.universes) {
+      if (universe.agentProcess.pid) {
+        try {
+          process.kill(universe.agentProcess.pid, 'SIGTERM');
+          console.log(`Killed agent process ${universe.agentProcess.pid} for universe ${universe.config.symbol}`);
+        } catch (err) {
+          // Process may have already exited
+        }
+      }
+    }
+
     console.log(`Stopped session ${session.id}.`);
   } finally {
     sessionManager.destroy();
