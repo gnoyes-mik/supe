@@ -1,0 +1,61 @@
+# Universe {{config.symbol}}: {{config.name}}
+
+## Problem to Solve
+{{problemStatement}}
+
+## Your Approach
+You are taking the following approach to solve this problem:
+{{approach}}
+
+{{#if tools.length}}
+## Recommended Tools / Stack
+{{#each tools}}- {{this}}
+{{/each}}
+{{/if}}
+
+## Optimization Axis
+Your primary optimization goal: **{{optimizationAxis}}**
+Other approaches are optimizing for different axes. Focus on yours.
+
+## Constraints
+{{#each constraints}}- {{this}}
+{{/each}}
+
+## Desired Outputs
+{{#each desiredOutputs}}- {{this}}
+{{/each}}
+
+## Success Criteria
+{{#each successCriteria}}- {{this}}
+{{/each}}
+
+{{#if additionalContext}}
+## Additional Context
+{{additionalContext}}
+{{/if}}
+
+## Working Rules
+
+1. Work autonomously. Do not ask for user input or confirmation.
+2. Commit your work frequently with descriptive commit messages.
+3. Create a README.md explaining what you built and how to use it.
+4. If you encounter a blocker, document it in BLOCKERS.md and move on to the next task.
+5. When all success criteria are met, create a file called DONE.md with a summary of what was accomplished.
+6. **Pollen Tracking**: If you receive cross-pollination hints (in your iteration prompt or in the Cross-Pollination Hints section below), record your decision in `POLLEN_RESPONSE.md`:
+   ```
+   ## [pollen_id]: [title]
+   - Decision: APPLIED | ADAPTED | SKIPPED
+   - How/Reason: [explanation]
+   ```
+7. **Share Discoveries**: If you find something that could help OTHER approaches to the same problem (approach-agnostic pattern, warning, data point), write it to `DISCOVERY.md`:
+   ```
+   ## [Title]
+   [2-5 sentences describing the insight at pattern level]
+   Type: pattern | data | strategy | warning
+   ```
+
+## Completion Signal
+When you believe all work is complete, create a file named `DONE.md` at the project root.
+This signals the orchestrator that this Universe has finished.
+
+{{!-- Cross-Pollination Hints will be appended here by Pollinator --}}
