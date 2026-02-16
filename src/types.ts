@@ -35,11 +35,11 @@ export type SessionStatus =
 export interface SessionConfig {
   maxUniverses: number; // 기본값: 3, 범위: 2~10 (Stability 참고)
   defaultAgent: AgentType; // 기본값: 'claude'
-  agentAssignments: AgentType[]; // Universe별 에이전트 지정. 길이 = maxUniverses
+  baseRepoPath: string | null; // null이면 빈 디렉토리에서 시작
   maxDurationMs: number; // 기본값: 36_000_000 (10시간)
   maxCostUsd: number; // 기본값: 30.0 (세션 전체)
   maxCostPerUniverseUsd: number; // 기본값: 10.0 (Universe당)
-  pollenIntervalMs: number; // 기본값: 1_800_000 (30분)
+  pollenIntervalMs: number; // 기본값: 300_000 (5분)
   pollenEnabled: boolean; // 기본값: true
   slackEnabled: boolean; // 기본값: true
   slackChannel: string; // 기본값: config.json의 defaultChannel

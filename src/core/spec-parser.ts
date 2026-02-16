@@ -49,7 +49,7 @@ const DEFAULT_AGENT: AgentType = 'claude';
 export async function parseSpec(
   specPath: string,
   universeCount: number,
-  agentAssignments: AgentType[]
+  defaultAgent: AgentType
 ): Promise<ParsedSpec> {
   const specContent = await readFile(specPath, 'utf-8');
 
@@ -58,6 +58,7 @@ export async function parseSpec(
   const parsedBase = await parseSpecContent(specContent);
 
   const symbols = UNIVERSE_SYMBOLS.slice(0, universeCount);
+  const agentAssignments = Array.from<AgentType>({ length: universeCount }).fill(defaultAgent);
   let universeConfigs = await generateUniverseConfigs(
     parsedBase,
     universeCount,

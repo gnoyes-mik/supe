@@ -1,0 +1,41 @@
+<!-- supe:start -->
+## Supe — Multiverse Orchestration Engine
+
+Supe explores multiple solution approaches simultaneously. Define a problem, and Supe runs N isolated universes in parallel — each with a different strategy — then cross-pollinates insights between them.
+
+### When to Use
+
+- You want to compare fundamentally different approaches to the same problem
+- You're unsure which architecture, framework, or strategy is best
+- You want parallel exploration with automatic insight sharing
+
+### Usage
+
+```bash
+# Explore approaches for a new feature on this project
+supe run --spec <path-to-spec.md> --base-repo . --universes 3
+
+# Start fresh (no base project)
+supe run --spec <path-to-spec.md> --universes 3
+```
+
+### Key Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--spec <path>` | Problem specification file (required) | — |
+| `--base-repo <path>` | Existing project to use as base | none (empty dir) |
+| `--universes <n>` | Number of parallel universes | 3 |
+| `--agent <type>` | Agent type (`claude` or `codex`) | claude |
+| `--no-pollen` | Disable cross-pollination | enabled |
+
+### Output
+
+Results are stored in `~/.supe/sessions/`. Use these commands to inspect:
+
+```bash
+supe status          # Current session status
+supe report          # Comparison report across universes
+supe list            # All sessions
+```
+<!-- supe:end -->

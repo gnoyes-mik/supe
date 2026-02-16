@@ -1,4 +1,7 @@
 import readline from 'readline/promises';
+import { readFile, writeFile } from 'fs/promises';
+import { join } from 'path';
+import { fileURLToPath } from 'url';
 import { loadConfig, saveConfig } from '../../utils/config.js';
 import type { AgentType, GlobalConfig } from '../../types.js';
 
@@ -56,8 +59,44 @@ export async function initCommand(): Promise<void> {
 
     await saveConfig(config);
     console.log('Supe configuration saved successfully.');
+
+    await generateAgentsMd(process.cwd());
   } finally {
     rl.close();
+  }
+}
+
+async function generateAgentsMd(cwd: string): Promise<void> {
+  const templateDir = join(fileURLToPath(import.meta.url), '..', '..', '..', '..', 'templates');
+  let supeSection: string;
+  try {
+    supeSection = await readFile(join(templateDir, 'AGENTS.md.hbs'), 'utf-8');
+  } catch {
+    console.log('AGENTS.md template not found, skipping.');
+    return;
+  }
+
+  const agentsPath = join(cwd, 'AGENTS.md');
+
+  try {
+    const existing = await readFile(agentsPath, 'utf-8');
+    if (existing.includes('<!-- supe:start -->')) {
+      // 이미 Supe 섹션 있음 → 교체
+      const updated = existing.replace(
+        /<!-- supe:start -->[\s\S]*?<!-- supe:end -->/,
+        supeSection.trim(),
+      );
+      await writeFile(agentsPath, updated);
+      console.log('AGENTS.md updated with latest Supe section.');
+    } else {
+      // AGENTS.md 존재하지만 Supe 섹션 없음 → 끝에 append
+      await writeFile(agentsPath, existing + '\n\n' + supeSection.trim() + '\n');
+      console.log('Supe section appended to existing AGENTS.md.');
+    }
+  } catch {
+    // AGENTS.md 없음 → 새로 생성
+    await writeFile(agentsPath, supeSection.trim() + '\n');
+    console.log('AGENTS.md created with Supe section.');
   }
 }
 

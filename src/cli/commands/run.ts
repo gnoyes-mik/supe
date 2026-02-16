@@ -8,6 +8,8 @@ import { checkMultiverseStability } from '../../core/stability.js';
 import { loadConfig, getSupeHome } from '../../utils/config.js';
 import { initLlmClient } from '../../utils/llm.js';
 import { logger } from '../../utils/logger.js';
+import { resolve } from 'path';
+import { stat } from 'fs/promises';
 import type {
   AgentConfig,
   AgentType,
@@ -53,11 +55,11 @@ export async function runCommand(opts: Record<string, unknown>): Promise<void> {
 
       const universeCount = getUniverseCount(opts.universes, config.session.maxUniverses);
       const defaultAgent = getAgentType(opts.agent) ?? config.defaultAgent;
-      const assignments = getAgentAssignments(opts.agents, universeCount, defaultAgent);
+      const baseRepoPath = await resolveBaseRepoPath(opts.baseRepo);
 
-      const parsedSpec = await parseSpecWithFallback(specPath, rawSpec, universeCount, assignments);
+      const parsedSpec = await parseSpecWithFallback(specPath, rawSpec, universeCount, defaultAgent);
 
-      const sessionConfig = buildSessionConfig(opts, config, universeCount, defaultAgent, assignments);
+      const sessionConfig = buildSessionConfig(opts, config, universeCount, defaultAgent, baseRepoPath);
       const stability = checkMultiverseStability(sessionConfig.maxUniverses);
 
       console.log(stability.message);
@@ -145,22 +147,21 @@ function getAgentType(value: unknown): AgentType | undefined {
   return undefined;
 }
 
-function getAgentAssignments(value: unknown, count: number, defaultAgent: AgentType): AgentType[] {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    return Array.from({ length: count }, () => defaultAgent);
+async function resolveBaseRepoPath(value: unknown): Promise<string | null> {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (raw.length === 0) return null;
+
+  const resolved = resolve(raw);
+  try {
+    const s = await stat(resolved);
+    if (!s.isDirectory()) {
+      throw new Error(`--base-repo path is not a directory: ${resolved}`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('--base-repo')) throw err;
+    throw new Error(`--base-repo path does not exist: ${resolved}`);
   }
-
-  const parsed = value
-    .split(',')
-    .map((entry) => entry.trim())
-    .map((entry) => (entry === 'claude' || entry === 'codex' ? entry : null))
-    .filter((entry): entry is AgentType => entry !== null);
-
-  if (parsed.length === 0) {
-    return Array.from({ length: count }, () => defaultAgent);
-  }
-
-  return Array.from({ length: count }, (_, idx) => parsed[idx % parsed.length] ?? defaultAgent);
+  return resolved;
 }
 
 function getBooleanOpt(value: unknown, fallback: boolean): boolean {
@@ -211,7 +212,7 @@ function buildSessionConfig(
   config: GlobalConfig,
   universeCount: number,
   defaultAgent: AgentType,
-  assignments: AgentType[]
+  baseRepoPath: string | null,
 ): SessionConfig {
   const maxDurationMs = parseDurationToMs(
     opts.timeout,
@@ -222,19 +223,19 @@ function buildSessionConfig(
     ? maxCostUsd / universeCount
     : config.agents[defaultAgent].maxCostPerUniverse;
   const pollenIntervalMs = getNumberOpt(opts['pollenInterval'], config.pollen.cycleIntervalMinutes) * 60 * 1000;
-  const slackEnabled = getBooleanOpt(opts.slack, false);
+  const slackEnabled = Boolean(config.slack.botToken);
 
   return {
     maxUniverses: universeCount,
     defaultAgent,
-    agentAssignments: assignments,
+    baseRepoPath,
     maxDurationMs,
     maxCostUsd,
     maxCostPerUniverseUsd,
     pollenIntervalMs,
     pollenEnabled: getBooleanOpt(opts.pollen, true),
     slackEnabled,
-    slackChannel: getStringOpt(opts.channel) ?? config.slack.defaultChannel,
+    slackChannel: config.slack.defaultChannel,
   };
 }
 
@@ -256,7 +257,7 @@ async function parseSpecWithFallback(
   specPath: string,
   rawSpec: string,
   universeCount: number,
-  assignments: AgentType[]
+  defaultAgent: AgentType,
 ): Promise<ParsedSpec> {
   const module = await import('../../core/spec-parser.js');
   const candidate = (module as Record<string, unknown>).SpecParser;
@@ -279,9 +280,9 @@ async function parseSpecWithFallback(
     const parseSpecFn = module.parseSpec as (
       path: string,
       count: number,
-      agents: AgentType[]
+      defaultAgent: AgentType,
     ) => Promise<ParsedSpec>;
-    return parseSpecFn(specPath, universeCount, assignments);
+    return parseSpecFn(specPath, universeCount, defaultAgent);
   }
 
   throw new Error('Spec parser is not available.');

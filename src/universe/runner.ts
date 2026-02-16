@@ -19,7 +19,10 @@ import {
   getCommitCount,
   getFileCount,
   getLatestCommitMessage,
+  isGitRepo,
+  cloneRepo,
 } from '../utils/git.js';
+import { copyDir, appendToGitignore } from '../utils/fs.js';
 import { logger } from '../utils/logger.js';
 import { buildPrompt, writePromptFile } from './prompt-builder.js';
 import { assessCriteriaProgress, calculatePercentage } from './progress-detector.js';
@@ -46,18 +49,38 @@ export class UniverseRunner {
   }
 
   async setup(universe: Universe): Promise<void> {
+    let git;
+
+    if (this.session.config.baseRepoPath) {
+      const isGit = await isGitRepo(this.session.config.baseRepoPath);
+
+      if (isGit) {
+        // git repo → clone + 새 브랜치 (히스토리 보존, 에이전트가 활용)
+        git = await cloneRepo(this.session.config.baseRepoPath, universe.workdir, universe.gitBranch);
+      } else {
+        // non-git → 파일 복사 + git init
+        await copyDir(this.session.config.baseRepoPath, universe.workdir);
+        git = await initRepo(universe.workdir, universe.gitBranch);
+        await git.add('.');
+        await git.commit('init: imported base project');
+      }
+
+      await appendToGitignore(universe.workdir);
+      await git.add('.gitignore');
+    } else {
+      // 기존 동작: 빈 디렉토리
+      git = await initRepo(universe.workdir, universe.gitBranch);
+      await writeFile(join(universe.workdir, '.gitignore'), '.supe/\n');
+      await git.add('.gitignore');
+      await git.commit('init: universe setup');
+    }
+
     await mkdir(join(universe.workdir, '.supe', 'pollens'), { recursive: true });
-
-    const git = await initRepo(universe.workdir, universe.gitBranch);
-
-    await writeFile(join(universe.workdir, '.gitignore'), '.supe/\n');
-    await git.add('.gitignore');
-    await git.commit('init: universe setup');
 
     const promptContent = await buildPrompt(universe.config, this.session.spec.parsed);
     await writePromptFile(universe.workdir, promptContent);
     await git.add('PROMPT.md');
-    await git.commit('init: universe prompt');
+    await git.commit('supe: universe prompt');
 
     await this.saveState(universe);
 

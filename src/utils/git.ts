@@ -66,3 +66,25 @@ export async function getCurrentHash(git: SimpleGit): Promise<string> {
     return '';
   }
 }
+
+export async function isGitRepo(dir: string): Promise<boolean> {
+  try {
+    const git = simpleGit(dir);
+    await git.revparse(['--is-inside-work-tree']);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function cloneRepo(
+  source: string,
+  dest: string,
+  branch: string,
+): Promise<SimpleGit> {
+  const git = simpleGit();
+  await git.clone(source, dest, ['--no-hardlinks']);
+  const cloned = simpleGit(dest);
+  await cloned.checkoutLocalBranch(branch);
+  return cloned;
+}
