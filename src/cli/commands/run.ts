@@ -222,7 +222,7 @@ function buildSessionConfig(
     ? maxCostUsd / universeCount
     : config.agents[defaultAgent].maxCostPerUniverse;
   const pollenIntervalMs = getNumberOpt(opts['pollenInterval'], config.pollen.cycleIntervalMinutes) * 60 * 1000;
-  const slackEnabled = getBooleanOpt(opts.slack, true);
+  const slackEnabled = getBooleanOpt(opts.slack, false);
 
   return {
     maxUniverses: universeCount,

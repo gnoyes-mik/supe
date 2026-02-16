@@ -74,7 +74,7 @@ function getDefaultConfig(): GlobalConfig {
       defaultChannel: '',
     },
     pollen: {
-      cycleIntervalMinutes: 30,
+      cycleIntervalMinutes: 5,
       maxPollensPerCycle: 3,
       minTimeBetweenInjectionsMinutes: 20,
     },

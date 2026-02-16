@@ -17,7 +17,9 @@ export class Orchestrator {
   private config: SessionConfig;
   private agentConfigs: Record<string, AgentConfig>;
   private runners: Map<string, IUniverseRunner> = new Map();
-  private pollenTimer: ReturnType<typeof setInterval> | null = null;
+  private lastCycleAt = 0;
+  private pollenCycleRunning = false;
+  private pollenProgressHandler: ((...args: any[]) => void) | null = null;
   private timeoutTimer: ReturnType<typeof setTimeout> | null = null;
   private cycleNumber = 0;
 
@@ -53,11 +55,10 @@ export class Orchestrator {
     }, this.config.maxDurationMs);
 
     if (this.config.pollenEnabled) {
-      this.pollenTimer = setInterval(() => {
-        this.runPollenCycle().catch((err: unknown) => {
-          logger.error('orchestrator', `Pollen cycle error: ${err}`);
-        });
-      }, this.config.pollenIntervalMs);
+      this.pollenProgressHandler = (data: { universeId: string; progress: { totalCommits: number } }) => {
+        this.onUniverseProgress(data);
+      };
+      this.emitter.on('universe:progress', this.pollenProgressHandler);
     }
 
     const promises = this.session.universes.map(universe => {
@@ -168,10 +169,33 @@ export class Orchestrator {
     }
   }
 
+  private onUniverseProgress(data: { universeId: string; progress: { totalCommits: number } }): void {
+    // Skip if initial commits only (setup commits = 2)
+    if (data.progress.totalCommits <= 2) return;
+
+    // Skip if minimum interval not elapsed
+    const now = Date.now();
+    if (now - this.lastCycleAt < this.config.pollenIntervalMs) return;
+
+    // Skip if cycle already running
+    if (this.pollenCycleRunning) return;
+
+    this.pollenCycleRunning = true;
+    this.lastCycleAt = now;
+
+    this.runPollenCycle()
+      .catch((err: unknown) => {
+        logger.error('orchestrator', `Pollen cycle error: ${err}`);
+      })
+      .finally(() => {
+        this.pollenCycleRunning = false;
+      });
+  }
+
   private cleanup(): void {
-    if (this.pollenTimer) {
-      clearInterval(this.pollenTimer);
-      this.pollenTimer = null;
+    if (this.pollenProgressHandler) {
+      this.emitter.removeListener('universe:progress', this.pollenProgressHandler);
+      this.pollenProgressHandler = null;
     }
     if (this.timeoutTimer) {
       clearTimeout(this.timeoutTimer);
