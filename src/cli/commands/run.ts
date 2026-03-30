@@ -59,8 +59,10 @@ export async function runCommand(opts: Record<string, unknown>): Promise<void> {
       logger.info('cli', `Resuming session ${session.id}`);
     } else {
       ensureLlmConfigured(config);
-      const specPath = getRequiredStringOpt(opts.spec, '--spec');
-      const rawSpec = await readSpecInput(specPath);
+      const specPath = getStringOpt(opts.spec);
+      const rawSpec = specPath
+        ? await readSpecInput(specPath)
+        : await promptInteractiveSpec();
 
       const universeCount = normalizeUniverseCount(opts.universes, config.session.maxUniverses);
       const defaultAgent = normalizeAgentType(opts.agent) ?? config.defaultAgent;
@@ -76,10 +78,14 @@ export async function runCommand(opts: Record<string, unknown>): Promise<void> {
         maxCost: opts['maxCost'],
         pollenInterval: opts['pollenInterval'],
         pollen: opts.pollen,
+        slack: opts.slack,
       }, config, universeCount, defaultAgent, baseRepoPath);
+      const specSourcePath = specPath
+        ? (specPath === '-' ? '<stdin>' : specPath)
+        : '<interactive>';
       const prepared = await prepareSessionForRun(sessionManager, {
         rawSpec,
-        specSourcePath: specPath === '-' ? '<stdin>' : specPath,
+        specSourcePath,
         universeCount,
         defaultAgent,
         agentAssignments,
@@ -223,6 +229,51 @@ async function readSpecInput(specPath: string): Promise<string> {
   }
 
   return raw;
+}
+
+async function promptInteractiveSpec(): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    console.log('');
+    console.log('No spec file provided. Entering interactive mode.');
+    console.log('Describe your problem and Supe will open the multiverse.\n');
+
+    const problem = await rl.question('What problem do you want to solve?\n> ');
+    if (problem.trim().length === 0) {
+      throw new SupeServiceError('invalid_request', 'Problem description cannot be empty.');
+    }
+
+    const constraints = await rl.question('\nAny constraints? (optional, separate with semicolons)\n> ');
+    const outputs = await rl.question('\nWhat outputs do you expect? (optional, separate with semicolons)\n> ');
+    const criteria = await rl.question('\nHow will you know it\'s solved? (optional, separate with semicolons)\n> ');
+
+    console.log('\nOpening rifts in spacetime...\n');
+
+    const sections: string[] = [`# ${problem.trim()}\n`, `## Problem\n${problem.trim()}\n`];
+
+    if (constraints.trim().length > 0) {
+      const items = constraints.split(/;|\n/).map(s => s.trim()).filter(Boolean);
+      sections.push(`## Constraints\n${items.map(c => `- ${c}`).join('\n')}\n`);
+    }
+
+    if (outputs.trim().length > 0) {
+      const items = outputs.split(/;|\n/).map(s => s.trim()).filter(Boolean);
+      sections.push(`## Desired Outputs\n${items.map(o => `- ${o}`).join('\n')}\n`);
+    }
+
+    if (criteria.trim().length > 0) {
+      const items = criteria.split(/;|\n/).map(s => s.trim()).filter(Boolean);
+      sections.push(`## Success Criteria\n${items.map(c => `- ${c}`).join('\n')}\n`);
+    }
+
+    return sections.join('\n');
+  } finally {
+    rl.close();
+  }
 }
 
 async function promptClarificationAnswers(

@@ -77,6 +77,7 @@ export function buildSessionConfig(
     maxCost?: unknown;
     pollenInterval?: unknown;
     pollen?: unknown;
+    slack?: unknown;
   },
   config: GlobalConfig,
   universeCount: number,
@@ -92,7 +93,7 @@ export function buildSessionConfig(
     ? maxCostUsd / universeCount
     : config.agents[defaultAgent].maxCostPerUniverse;
   const pollenIntervalMs = getNumberOpt(input.pollenInterval, config.pollen.cycleIntervalMinutes) * 60 * 1000;
-  const slackEnabled = Boolean(config.slack.botToken);
+  const slackEnabled = getBooleanOpt(input.slack, false) && Boolean(config.slack.botToken);
 
   return {
     maxUniverses: universeCount,
