@@ -73,11 +73,15 @@ export async function callLlmJson<T>(
   const raw = await callLlm(prompt, options);
   
   let jsonStr = raw.trim();
-  
+
+  // Strip markdown code fences
   const fenceMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
   if (fenceMatch) {
     jsonStr = fenceMatch[1].trim();
   }
+
+  // Extract the outermost JSON object or array, ignoring trailing text
+  jsonStr = extractJson(jsonStr);
 
   try {
     return JSON.parse(jsonStr) as T;
@@ -221,4 +225,51 @@ async function cleanupTempFile(file: string): Promise<void> {
   const dir = file.slice(0, file.lastIndexOf('/'));
   await rm(file, { force: true }).catch(() => {});
   await rm(dir, { recursive: true, force: true }).catch(() => {});
+}
+
+/**
+ * Extract the outermost JSON object or array from a string that may
+ * contain leading/trailing prose (e.g. "Here is the JSON:\n{...}\n\n**Rationale:**...").
+ * Uses bracket/brace depth counting with basic string literal awareness.
+ */
+function extractJson(raw: string): string {
+  const startIdx = raw.search(/[\[{]/);
+  if (startIdx === -1) return raw;
+
+  const open = raw[startIdx];
+  const close = open === '{' ? '}' : ']';
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = startIdx; i < raw.length; i++) {
+    const ch = raw[i];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (ch === open) depth++;
+    else if (ch === close) depth--;
+
+    if (depth === 0) {
+      return raw.slice(startIdx, i + 1);
+    }
+  }
+
+  // Couldn't find matching close — return original for downstream error
+  return raw;
 }
