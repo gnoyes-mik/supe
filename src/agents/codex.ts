@@ -1,5 +1,5 @@
 export const CODEX_DEFAULTS = {
   command: 'codex',
-  args: [],
+  args: ['--full-auto'],
   maxCostPerUniverse: 10.0,
 } as const;

@@ -13,6 +13,7 @@ import {
   buildSessionConfig,
   normalizeAgentType,
   normalizeUniverseCount,
+  resolveAgentAssignments,
   resolveBaseRepoPath,
 } from '../../app/run-config.js';
 import {
@@ -41,7 +42,7 @@ export async function runCommand(opts: Record<string, unknown>): Promise<void> {
   configureJsonOutput(jsonMode);
 
   const config = await loadConfig();
-  initLlmClient(config.llm);
+  initLlmClient(config.llm, config.agents);
 
   const sessionManager = new SessionManager();
 
@@ -63,6 +64,7 @@ export async function runCommand(opts: Record<string, unknown>): Promise<void> {
 
       const universeCount = normalizeUniverseCount(opts.universes, config.session.maxUniverses);
       const defaultAgent = normalizeAgentType(opts.agent) ?? config.defaultAgent;
+      const agentAssignments = resolveAgentAssignments(opts['agents'], universeCount, defaultAgent);
       const baseRepoPath = await resolveBaseRepoPath(opts.baseRepo);
       const clarificationAnswers = await loadClarificationAnswers({
         clarificationJson: opts['clarificationJson'],
@@ -80,6 +82,7 @@ export async function runCommand(opts: Record<string, unknown>): Promise<void> {
         specSourcePath: specPath === '-' ? '<stdin>' : specPath,
         universeCount,
         defaultAgent,
+        agentAssignments,
         sessionConfig,
         clarificationAnswers,
         clarificationMode: nonInteractive || jsonMode ? 'return' : 'prompt',

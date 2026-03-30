@@ -1,4 +1,10 @@
-import { buildSessionConfig, normalizeAgentType, normalizeUniverseCount, resolveBaseRepoPath } from '../app/run-config.js';
+import {
+  buildSessionConfig,
+  normalizeAgentType,
+  normalizeUniverseCount,
+  resolveAgentAssignments,
+  resolveBaseRepoPath,
+} from '../app/run-config.js';
 import {
   makeSessionJsonData,
   SUPE_CONTRACT_VERSION,
@@ -149,7 +155,7 @@ const REPO_ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 
 export async function serveMcp(): Promise<void> {
   const config = await loadConfig();
-  initLlmClient(config.llm);
+  initLlmClient(config.llm, config.agents);
 
   let buffer = '';
   process.stdin.setEncoding('utf8');
@@ -336,6 +342,7 @@ async function callTool(
       ensureLlmConfigured(config);
       const universeCount = normalizeUniverseCount(args.universes, config.session.maxUniverses);
       const defaultAgent = normalizeAgentType(args.agent) ?? config.defaultAgent;
+      const agentAssignments = resolveAgentAssignments(args.agents, universeCount, defaultAgent);
       const baseRepoPath = await resolveBaseRepoPath(args.baseRepo);
       const sessionConfig = buildSessionConfig({
         timeout: args.timeout,
@@ -349,6 +356,7 @@ async function callTool(
         specSourcePath: typeof args.specSourcePath === 'string' ? args.specSourcePath : '<mcp>',
         universeCount,
         defaultAgent,
+        agentAssignments,
         sessionConfig,
         clarificationAnswers: parseClarificationAnswers(args.clarificationAnswers),
         clarificationMode: 'return',

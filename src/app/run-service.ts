@@ -19,6 +19,7 @@ export interface RunPreparationOptions {
   specSourcePath: string;
   universeCount: number;
   defaultAgent: AgentType;
+  agentAssignments: AgentType[];
   sessionConfig: SessionConfig;
   clarificationAnswers?: Partial<Record<ClarificationField, string>>;
   clarificationMode: 'prompt' | 'return';
@@ -52,7 +53,7 @@ export async function prepareSessionForRun(
   const prepared = await prepareSpecFromRawSpec(
     options.rawSpec,
     options.universeCount,
-    options.defaultAgent,
+    options.agentAssignments,
     options.clarificationAnswers,
   );
 
@@ -76,7 +77,7 @@ export async function prepareSessionForRun(
       prepared.parsedSpec,
       prepared.assessment,
       options.universeCount,
-      options.defaultAgent,
+      options.agentAssignments,
       answers,
     );
   } else {

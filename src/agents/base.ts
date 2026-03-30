@@ -37,6 +37,6 @@ class CodexRunner implements AgentRunner {
   }
 
   buildArgs(config: AgentConfig, prompt: string): string[] {
-    return [...config.args, '--prompt', prompt];
+    return [...config.args, 'exec', prompt];
   }
 }

@@ -3,6 +3,7 @@ import { constants } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
+import { CODEX_DEFAULTS } from '../agents/codex.js';
 import { HOST_CAPABILITIES_REGISTRY, RUNTIME_ADAPTER_CONTRACTS } from './contracts.js';
 import { isLlmConfigured } from './preflight-service.js';
 import { ensureSupeHome, getSupeHome, loadConfig, saveConfig } from '../utils/config.js';
@@ -148,6 +149,27 @@ async function withDetectedRuntimeCommands(config: GlobalConfig): Promise<Global
     next.agents[runtime.command].command = runtime.path;
   }
 
+  if (next.agents.codex.args.length === 0) {
+    next.agents.codex.args = [...CODEX_DEFAULTS.args];
+  }
+
+  const claudeReady = runtimes.find((runtime) => runtime.command === 'claude')?.available === true;
+  const codexReady = runtimes.find((runtime) => runtime.command === 'codex')?.available === true;
+
+  if (config.llm.analysisProvider === 'anthropic-api' && config.llm.apiKey.trim().length > 0) {
+    // preserve explicit API-backed config
+  } else if (claudeReady) {
+    next.llm = {
+      ...next.llm,
+      analysisProvider: 'claude-cli',
+    };
+  } else if (codexReady) {
+    next.llm = {
+      ...next.llm,
+      analysisProvider: 'codex-cli',
+    };
+  }
+
   await mkdir(join(REPO_ROOT, '.claude-plugin'), { recursive: true });
   await mkdir(join(REPO_ROOT, 'skills'), { recursive: true });
   return next;
@@ -212,7 +234,7 @@ async function probeLlm(
   }
 
   try {
-    initLlmClient(config.llm);
+    initLlmClient(config.llm, config.agents);
     const response = await callLlm('Reply with exactly OK.', { maxTokens: 8 });
     return {
       attempted: true,

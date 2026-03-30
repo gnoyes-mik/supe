@@ -34,14 +34,14 @@ test('stop --json returns not_found envelope for missing session', async () => {
   assert.equal(payload.error.code, 'not_found');
 });
 
-test('run --spec - --json --non-interactive returns precondition failure before parsing when LLM is not configured', async () => {
+test('run --spec - --json --non-interactive returns invalid_request on empty stdin when local analysis backend is ready', async () => {
   const result = await runCli(['run', '--spec', '-', '--json', '--non-interactive'], {
     stdin: '',
   });
-  assert.equal(result.code, 1);
+  assert.equal(result.code, 5);
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.ok, false);
-  assert.equal(payload.error.code, 'precondition_failed');
+  assert.equal(payload.error.code, 'invalid_request');
 });
 
 test('resume --json returns not_found envelope and exit code for missing session', async () => {

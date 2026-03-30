@@ -1,6 +1,7 @@
 import { resolve } from 'path';
 import { stat } from 'fs/promises';
 import type { AgentType, GlobalConfig, SessionConfig } from '../types.js';
+import { invalidRequest } from './errors.js';
 
 export function normalizeUniverseCount(value: unknown, fallback: number): number {
   const parsed = typeof value === 'string' || typeof value === 'number'
@@ -21,6 +22,36 @@ export function normalizeAgentType(value: unknown): AgentType | undefined {
     return value;
   }
   return undefined;
+}
+
+export function resolveAgentAssignments(
+  agentsValue: unknown,
+  universeCount: number,
+  fallbackAgent: AgentType,
+): AgentType[] {
+  if (typeof agentsValue !== 'string' || agentsValue.trim().length === 0) {
+    return Array.from<AgentType>({ length: universeCount }).fill(fallbackAgent);
+  }
+
+  const requested = agentsValue
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+
+  if (requested.length === 0) {
+    throw invalidRequest('`--agents` must include at least one runtime name.');
+  }
+
+  const normalized = requested.map((entry) => {
+    if (entry === 'claude' || entry === 'codex') {
+      return entry as AgentType;
+    }
+    throw invalidRequest(
+      `Unsupported agent in --agents: ${entry}. Supported values are: claude, codex.`,
+    );
+  });
+
+  return Array.from({ length: universeCount }, (_, idx) => normalized[idx % normalized.length]);
 }
 
 export async function resolveBaseRepoPath(value: unknown): Promise<string | null> {

@@ -71,16 +71,17 @@ test('MCP resume_session returns not_found code for missing session', async () =
   assert.equal(response.result.structuredContent.code, 'not_found');
 });
 
-test('MCP start_session returns explicit preflight error when LLM is not configured', async () => {
+test('MCP start_session rejects unsupported agents before launch', async () => {
   const response = await callMcpTool('supe.start_session', {
     spec: 'Build something useful',
     universes: 3,
     agent: 'claude',
+    agents: 'claude,gemini,codex',
   });
   assert.equal(response.result.isError, true);
-  assert.equal(response.result.structuredContent.code, 'precondition_failed');
+  assert.equal(response.result.structuredContent.code, 'invalid_request');
   assert.match(
     response.result.structuredContent.message,
-    /LLM API key is not configured/i,
+    /Unsupported agent in --agents: gemini/i,
   );
 });

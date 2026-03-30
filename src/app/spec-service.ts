@@ -25,7 +25,7 @@ export type PreparedSpecResult =
 export async function prepareSpecFromRawSpec(
   rawSpec: string,
   universeCount: number,
-  defaultAgent: AgentType,
+  agentAssignments: AgentType[],
   answers: Partial<Record<ClarificationField, string>> = {},
 ): Promise<PreparedSpecResult> {
   const parsedBase = await parseSpecContent(rawSpec);
@@ -43,7 +43,7 @@ export async function prepareSpecFromRawSpec(
   const universeConfigs = await generateUniverseConfigsForParsedSpec(
     resolvedBase,
     universeCount,
-    defaultAgent,
+    agentAssignments,
   );
 
   return {
@@ -59,14 +59,14 @@ export async function finalizePreparedSpec(
   parsedBase: ParsedSpecBase,
   assessment: AmbiguityAssessment,
   universeCount: number,
-  defaultAgent: AgentType,
+  agentAssignments: AgentType[],
   answers: Partial<Record<ClarificationField, string>> = {},
 ): Promise<ParsedSpec> {
   const resolvedBase = applyClarificationAnswers(parsedBase, answers, assessment);
   const universeConfigs = await generateUniverseConfigsForParsedSpec(
     resolvedBase,
     universeCount,
-    defaultAgent,
+    agentAssignments,
   );
 
   return {

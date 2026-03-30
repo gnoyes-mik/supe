@@ -27,7 +27,7 @@ export async function loadConfig(): Promise<GlobalConfig> {
     const raw = await readFile(CONFIG_PATH, 'utf-8');
     const config = JSON.parse(raw) as GlobalConfig;
     // Resolve environment variable references like "${ANTHROPIC_API_KEY}"
-    return resolveEnvVars(config);
+    return normalizeConfig(resolveEnvVars(config));
   } catch {
     return getDefaultConfig();
   }
@@ -64,7 +64,7 @@ function getDefaultConfig(): GlobalConfig {
       },
       codex: {
         command: 'codex',
-        args: [],
+        args: ['--full-auto'],
         maxCostPerUniverse: 10.0,
       },
     },
@@ -83,9 +83,24 @@ function getDefaultConfig(): GlobalConfig {
       maxUniverses: 10,
     },
     llm: {
-      analysisModel: 'claude-sonnet-4-20250514',
-      analysisProvider: 'anthropic',
+      analysisModel: 'default',
+      analysisProvider: 'claude-cli',
       apiKey: process.env.ANTHROPIC_API_KEY ?? '',
+    },
+  };
+}
+
+function normalizeConfig(config: GlobalConfig): GlobalConfig {
+  const rawProvider = config.llm.analysisProvider as string;
+  const provider = rawProvider === 'anthropic'
+    ? 'anthropic-api'
+    : rawProvider;
+
+  return {
+    ...config,
+    llm: {
+      ...config.llm,
+      analysisProvider: provider as GlobalConfig['llm']['analysisProvider'],
     },
   };
 }

@@ -63,7 +63,7 @@ export async function parseSpec(
   const universeConfigs = await generateUniverseConfigsForParsedSpec(
     parsedBase,
     universeCount,
-    defaultAgent,
+    Array.from<AgentType>({ length: universeCount }).fill(defaultAgent),
   );
 
   return {
@@ -98,10 +98,9 @@ ${specContent}
 export async function generateUniverseConfigsForParsedSpec(
   parsedBase: ParsedSpecBase,
   universeCount: number,
-  defaultAgent: AgentType,
+  agentAssignments: AgentType[],
 ): Promise<UniverseConfig[]> {
   const symbols = UNIVERSE_SYMBOLS.slice(0, universeCount);
-  const agentAssignments = Array.from<AgentType>({ length: universeCount }).fill(defaultAgent);
   let universeConfigs = await generateUniverseConfigs(
     parsedBase,
     universeCount,

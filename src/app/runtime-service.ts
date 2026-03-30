@@ -34,7 +34,15 @@ export async function executeSessionRuntime(
 
   if (session.status === 'running' || session.status === 'initializing') {
     const hasFailure = session.universes.some((universe) => universe.status === 'failed');
-    sessionManager.updateStatus(session, hasFailure ? 'failed' : 'completed');
+    const hasStopped = session.universes.some((universe) => universe.status === 'stopped');
+    const allCompleted = session.universes.every((universe) => universe.status === 'completed');
+    if (allCompleted) {
+      sessionManager.updateStatus(session, 'completed');
+    } else if (hasFailure || hasStopped) {
+      sessionManager.updateStatus(session, 'failed');
+    } else {
+      sessionManager.updateStatus(session, 'failed');
+    }
   }
 
   session.report = await generateReport(session);

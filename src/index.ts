@@ -15,6 +15,7 @@ program
   .option('--base-repo <path>', 'Use existing project as base for each universe')
   .option('--universes <number>', 'Number of universes', '3')
   .option('--agent <type>', 'Default agent type')
+  .option('--agents <list>', 'Round-robin runtime assignment list (comma-separated, e.g. claude,codex)')
   .option('--timeout <duration>', 'Max duration', '10h')
   .option('--max-cost <usd>', 'Max total cost in USD', '30')
   .option('--pollen-interval <min>', 'Pollen minimum interval in minutes', '5')

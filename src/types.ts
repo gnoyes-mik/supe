@@ -401,7 +401,7 @@ export interface SessionDefaults {
 
 export interface LlmConfig {
   analysisModel: string; // Pollen 분석 등에 사용할 모델
-  analysisProvider: 'anthropic' | 'openai';
+  analysisProvider: 'anthropic-api' | 'claude-cli' | 'codex-cli';
   apiKey: string; // 환경변수 참조 가능 "${ANTHROPIC_API_KEY}"
 }
 

@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { loadConfig, saveConfig } from '../../utils/config.js';
-import type { AgentType, GlobalConfig } from '../../types.js';
+import type { AgentType, GlobalConfig, LlmConfig } from '../../types.js';
 
 export async function initCommand(): Promise<void> {
   const existing = await loadConfig();
@@ -26,12 +26,16 @@ export async function initCommand(): Promise<void> {
     const channelAnswer = await rl.question(
       `Default Slack channel? [${existing.slack.defaultChannel || 'optional'}] `
     );
-    const apiKeyAnswer = await rl.question('Anthropic API Key? ');
+    const analysisProviderAnswer = await rl.question(
+      `Analysis backend (claude-cli/codex-cli/anthropic-api)? [${existing.llm.analysisProvider}] `
+    );
+    const apiKeyAnswer = await rl.question('Anthropic API Key? (optional unless using anthropic-api) ');
 
     const defaultAgent = parseAgent(defaultAgentAnswer) ?? existing.defaultAgent;
     const botToken = pickValue(botTokenAnswer, existing.slack.botToken);
     const appToken = pickValue(appTokenAnswer, existing.slack.appToken);
     const defaultChannel = pickValue(channelAnswer, existing.slack.defaultChannel);
+    const analysisProvider = parseAnalysisProvider(analysisProviderAnswer) ?? existing.llm.analysisProvider;
     const apiKey = pickValue(apiKeyAnswer, existing.llm.apiKey);
 
     const config: GlobalConfig = {
@@ -53,6 +57,7 @@ export async function initCommand(): Promise<void> {
       },
       llm: {
         ...existing.llm,
+        analysisProvider,
         apiKey,
       },
     };
@@ -108,6 +113,18 @@ function pickValue(input: string, fallback: string): string {
 function parseAgent(input: string): AgentType | undefined {
   const normalized = input.trim().toLowerCase();
   if (normalized === 'claude' || normalized === 'codex') {
+    return normalized;
+  }
+  return undefined;
+}
+
+function parseAnalysisProvider(input: string): LlmConfig['analysisProvider'] | undefined {
+  const normalized = input.trim().toLowerCase();
+  if (
+    normalized === 'claude-cli'
+    || normalized === 'codex-cli'
+    || normalized === 'anthropic-api'
+  ) {
     return normalized;
   }
   return undefined;

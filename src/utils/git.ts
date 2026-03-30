@@ -1,3 +1,4 @@
+import { mkdir } from 'fs/promises';
 import { simpleGit, type SimpleGit } from 'simple-git';
 
 export function createGit(workdir: string): SimpleGit {
@@ -5,6 +6,7 @@ export function createGit(workdir: string): SimpleGit {
 }
 
 export async function initRepo(workdir: string, branch: string): Promise<SimpleGit> {
+  await mkdir(workdir, { recursive: true });
   const git = createGit(workdir);
   await git.init();
   await git.checkoutLocalBranch(branch);

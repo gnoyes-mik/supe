@@ -46,3 +46,7 @@ export function errorCodeToExitCode(code: SupeErrorCode): number {
       return SUPE_EXIT_CODES.FAILURE;
   }
 }
+
+export function invalidRequest(message: string, details?: unknown): SupeServiceError {
+  return new SupeServiceError('invalid_request', message, details);
+}
