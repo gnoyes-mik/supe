@@ -11,8 +11,10 @@ import { logger } from '../../utils/logger.js';
 import { resolve } from 'path';
 import { stat } from 'fs/promises';
 import type {
+  AmbiguityAssessment,
   AgentConfig,
   AgentType,
+  ClarificationField,
   GlobalConfig,
   ParsedSpec,
   Report,
@@ -28,13 +30,15 @@ interface ParsedSpecOnly {
 }
 
 interface ReportComparatorApi {
-  generateReport(session: Session): Promise<Report>;
+  generateReport(): Promise<Report>;
 }
 
 interface SlackApi {
   createSlackApp: (config: GlobalConfig['slack']) => Promise<unknown> | unknown;
   initializeSlack: (session: Session, app: unknown, emitter: EventEmitter) => Promise<void>;
 }
+
+type ParsedSpecBase = Omit<ParsedSpec, 'universeConfigs'>;
 
 export async function runCommand(opts: Record<string, unknown>): Promise<void> {
   const config = await loadConfig();
@@ -57,7 +61,8 @@ export async function runCommand(opts: Record<string, unknown>): Promise<void> {
       const defaultAgent = getAgentType(opts.agent) ?? config.defaultAgent;
       const baseRepoPath = await resolveBaseRepoPath(opts.baseRepo);
 
-      const parsedSpec = await parseSpecWithFallback(specPath, rawSpec, universeCount, defaultAgent);
+      let parsedSpec = await parseSpecWithFallback(specPath, rawSpec, universeCount, defaultAgent);
+      parsedSpec = await resolveProblemContract(parsedSpec, universeCount, defaultAgent);
 
       const sessionConfig = buildSessionConfig(opts, config, universeCount, defaultAgent, baseRepoPath);
       const stability = checkMultiverseStability(sessionConfig.maxUniverses);
@@ -253,6 +258,119 @@ async function promptConfirmation(prompt: string): Promise<boolean> {
   }
 }
 
+async function promptClarificationAnswers(
+  assessment: AmbiguityAssessment,
+): Promise<Partial<Record<ClarificationField, string>>> {
+  const answers: Partial<Record<ClarificationField, string>> = {};
+  const questions = assessment.questions.slice(0, 3);
+
+  if (questions.length === 0) {
+    return answers;
+  }
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    console.log('');
+    console.log('Supe needs a tighter problem contract before the universes diverge:');
+    for (const reason of assessment.blockingReasons) {
+      console.log(`- ${reason}`);
+    }
+    console.log('');
+
+    for (const question of questions) {
+      console.log(`${question.why}`);
+      const answer = await rl.question(`${question.prompt}\n> `);
+      answers[question.id] = answer;
+      console.log('');
+    }
+  } finally {
+    rl.close();
+  }
+
+  return answers;
+}
+
+async function resolveProblemContract(
+  parsedSpec: ParsedSpec,
+  universeCount: number,
+  defaultAgent: AgentType,
+): Promise<ParsedSpec> {
+  const ambiguityModule = await import('../../core/ambiguity-gate.js');
+  const specModule = await import('../../core/spec-parser.js');
+  const assessment = ambiguityModule.assessAmbiguity(extractParsedSpecBase(parsedSpec));
+
+  let answers: Partial<Record<ClarificationField, string>> = {};
+  if (assessment.requiresClarification) {
+    if (process.stdin.isTTY) {
+      answers = await promptClarificationAnswers(assessment);
+    } else {
+      logger.warn(
+        'cli',
+        'Problem contract is ambiguous but stdin is not interactive. Proceeding with logged assumptions.',
+      );
+    }
+  }
+
+  const resolvedBase = ambiguityModule.applyClarificationAnswers(
+    extractParsedSpecBase(parsedSpec),
+    answers,
+    assessment,
+  );
+
+  if (!didProblemContractChange(extractParsedSpecBase(parsedSpec), resolvedBase)) {
+    return {
+      ...parsedSpec,
+      ...resolvedBase,
+      universeConfigs: parsedSpec.universeConfigs,
+    };
+  }
+
+  logger.info('cli', 'Problem contract refined. Regenerating universe approaches...');
+  const universeConfigs = await specModule.generateUniverseConfigsForParsedSpec(
+    resolvedBase,
+    universeCount,
+    defaultAgent,
+  );
+
+  return {
+    ...resolvedBase,
+    universeConfigs,
+  };
+}
+
+function extractParsedSpecBase(parsedSpec: ParsedSpec): ParsedSpecBase {
+  const { universeConfigs: _ignored, ...rest } = parsedSpec;
+  return rest;
+}
+
+function didProblemContractChange(before: ParsedSpecBase, after: ParsedSpecBase): boolean {
+  return (
+    before.problemStatement !== after.problemStatement
+    || !sameStringList(before.desiredOutputs, after.desiredOutputs)
+    || !sameStringList(before.successCriteria, after.successCriteria)
+    || !sameStringList(before.constraints, after.constraints)
+    || !sameStringList(before.outOfScope, after.outOfScope)
+  );
+}
+
+function sameStringList(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let idx = 0; idx < left.length; idx += 1) {
+    if (left[idx] !== right[idx]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 async function parseSpecWithFallback(
   specPath: string,
   rawSpec: string,
@@ -328,10 +446,6 @@ function buildFallbackReport(session: Session): Report {
     }
   }
 
-  const winner = session.universes[0];
-  const winnerId = winner?.id ?? '';
-  const winnerSymbol = winner?.config.symbol ?? '';
-
   return {
     sessionId: session.id,
     generatedAt: new Date().toISOString(),
@@ -341,6 +455,11 @@ function buildFallbackReport(session: Session): Report {
       symbol: universe.config.symbol,
       name: universe.config.name,
       status: universe.status,
+      approach: universe.config.approach,
+      optimizationAxis: universe.config.optimizationAxis,
+      tools: universe.config.tools,
+      estimatedStrength: universe.config.estimatedStrength,
+      estimatedWeakness: universe.config.estimatedWeakness,
       metrics: universe.metrics,
       highlights: [universe.progress.currentPhase].filter((entry) => entry.trim().length > 0),
     })),
@@ -354,12 +473,11 @@ function buildFallbackReport(session: Session): Report {
       mostInfluenced: session.universes[0]?.config.symbol ?? '',
       notableEntanglements: [],
     },
-    recommendation: {
-      winnerId,
-      winnerSymbol,
-      reason: winner
-        ? `${winner.config.symbol} has the highest available completion signal.`
-        : 'No winner available.',
+    comparisonSummary: {
+      headline: `${session.universes.length} universes completed without collapsing to a single preferred path.`,
+      differences: session.universes.map((universe) =>
+        `Universe ${universe.config.symbol} emphasizes ${universe.config.optimizationAxis} with ${universe.config.tools.join(', ')}.`,
+      ),
     },
   };
 }
@@ -369,9 +487,9 @@ async function generateReportWithFallback(session: Session): Promise<Report> {
   const maybeCtor = (module as Record<string, unknown>).ReportComparator;
 
   if (typeof maybeCtor === 'function') {
-    const comparator = new (maybeCtor as new () => ReportComparatorApi)();
+    const comparator = new (maybeCtor as new (session: Session) => ReportComparatorApi)(session);
     if (typeof comparator.generateReport === 'function') {
-      return comparator.generateReport(session);
+      return comparator.generateReport();
     }
   }
 

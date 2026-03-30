@@ -2,9 +2,10 @@ import { readFile } from 'fs/promises';
 import type { AgentType, DiversityCheck, ParsedSpec, SpecDomain, UniverseConfig } from '../types.js';
 import { callLlmJson } from '../utils/llm.js';
 import { logger } from '../utils/logger.js';
+import { buildProblemContract } from './ambiguity-gate.js';
 import { UNIVERSE_SYMBOLS } from './stability.js';
 
-type ParsedSpecBase = Omit<ParsedSpec, 'universeConfigs'>;
+export type ParsedSpecBase = Omit<ParsedSpec, 'universeConfigs'>;
 
 interface ParsedSpecResponse {
   title: unknown;
@@ -14,6 +15,8 @@ interface ParsedSpecResponse {
   successCriteria: unknown;
   domain: unknown;
   additionalContext: unknown;
+  outOfScope: unknown;
+  assumptions: unknown;
 }
 
 interface UniverseConfigResponse {
@@ -57,6 +60,46 @@ export async function parseSpec(
 
   const parsedBase = await parseSpecContent(specContent);
 
+  const universeConfigs = await generateUniverseConfigsForParsedSpec(
+    parsedBase,
+    universeCount,
+    defaultAgent,
+  );
+
+  return {
+    ...parsedBase,
+    universeConfigs,
+  };
+}
+
+export async function parseSpecContent(specContent: string): Promise<ParsedSpecBase> {
+  const prompt = `You are a problem decomposer. Parse this free-form specification into structured data.
+
+## Spec Content
+${specContent}
+
+## Response Format (JSON, no markdown fencing)
+{
+  "title": "Project/problem title",
+  "problemStatement": "Core problem to solve",
+  "constraints": ["constraint 1", "constraint 2"],
+  "desiredOutputs": ["output 1", "output 2"],
+  "successCriteria": ["criterion 1", "criterion 2"],
+  "domain": "software-development | marketing | business-strategy | content-creation | research | design | other",
+  "additionalContext": "Any other relevant context",
+  "outOfScope": ["explicitly excluded item"],
+  "assumptions": ["safe assumption inferred from the spec"]
+}`;
+
+  const parsed = await callLlmJsonWithRetry<ParsedSpecResponse>(prompt, 'spec parsing');
+  return normalizeParsedSpecResponse(parsed);
+}
+
+export async function generateUniverseConfigsForParsedSpec(
+  parsedBase: ParsedSpecBase,
+  universeCount: number,
+  defaultAgent: AgentType,
+): Promise<UniverseConfig[]> {
   const symbols = UNIVERSE_SYMBOLS.slice(0, universeCount);
   const agentAssignments = Array.from<AgentType>({ length: universeCount }).fill(defaultAgent);
   let universeConfigs = await generateUniverseConfigs(
@@ -82,31 +125,7 @@ export async function parseSpec(
     );
   }
 
-  return {
-    ...parsedBase,
-    universeConfigs,
-  };
-}
-
-async function parseSpecContent(specContent: string): Promise<ParsedSpecBase> {
-  const prompt = `You are a problem decomposer. Parse this free-form specification into structured data.
-
-## Spec Content
-${specContent}
-
-## Response Format (JSON, no markdown fencing)
-{
-  "title": "Project/problem title",
-  "problemStatement": "Core problem to solve",
-  "constraints": ["constraint 1", "constraint 2"],
-  "desiredOutputs": ["output 1", "output 2"],
-  "successCriteria": ["criterion 1", "criterion 2"],
-  "domain": "software-development | marketing | business-strategy | content-creation | research | design | other",
-  "additionalContext": "Any other relevant context"
-}`;
-
-  const parsed = await callLlmJsonWithRetry<ParsedSpecResponse>(prompt, 'spec parsing');
-  return normalizeParsedSpecResponse(parsed);
+  return universeConfigs;
 }
 
 async function generateUniverseConfigs(
@@ -211,8 +230,10 @@ function normalizeParsedSpecResponse(raw: ParsedSpecResponse): ParsedSpecBase {
   const successCriteria = toStringArray(raw.successCriteria, 'successCriteria');
   const domain = toSpecDomain(raw.domain);
   const additionalContext = toString(raw.additionalContext);
+  const outOfScope = toOptionalStringArray(raw.outOfScope);
+  const assumptions = toOptionalStringArray(raw.assumptions);
 
-  return {
+  const parsed: ParsedSpecBase = {
     title,
     problemStatement,
     constraints,
@@ -220,7 +241,19 @@ function normalizeParsedSpecResponse(raw: ParsedSpecResponse): ParsedSpecBase {
     successCriteria,
     domain,
     additionalContext,
+    outOfScope,
+    assumptions,
+    problemContract: buildProblemContract({
+      problemStatement,
+      desiredOutputs,
+      constraints,
+      successCriteria,
+      outOfScope,
+      assumptions,
+    }),
   };
+
+  return parsed;
 }
 
 function normalizeUniverseConfigs(

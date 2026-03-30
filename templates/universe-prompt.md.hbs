@@ -3,6 +3,41 @@
 ## Problem to Solve
 {{problemStatement}}
 
+## Fixed Problem Contract
+- Problem: {{problemContract.problemStatement}}
+{{#if problemContract.requiredOutputs.length}}
+- Required Outputs:
+{{#each problemContract.requiredOutputs}}
+  - {{this}}
+{{/each}}
+{{/if}}
+{{#if problemContract.hardConstraints.length}}
+- Hard Constraints:
+{{#each problemContract.hardConstraints}}
+  - {{this}}
+{{/each}}
+{{/if}}
+{{#if problemContract.successCriteria.length}}
+- Success Criteria:
+{{#each problemContract.successCriteria}}
+  - {{this}}
+{{/each}}
+{{/if}}
+{{#if problemContract.outOfScope.length}}
+- Out of Scope:
+{{#each problemContract.outOfScope}}
+  - {{this}}
+{{/each}}
+{{/if}}
+{{#if problemContract.assumptions.length}}
+- Assumptions:
+{{#each problemContract.assumptions}}
+  - {{this}}
+{{/each}}
+{{/if}}
+
+You may explore different solutions, but do **not** redefine the fixed problem contract above.
+
 ## Your Approach
 You are taking the following approach to solve this problem:
 {{approach}}
@@ -38,24 +73,40 @@ Other approaches are optimizing for different axes. Focus on yours.
 
 1. Work autonomously. Do not ask for user input or confirmation.
 2. Commit your work frequently with descriptive commit messages.
-3. Create a README.md explaining what you built and how to use it.
-4. If you encounter a blocker, document it in BLOCKERS.md and move on to the next task.
-5. When all success criteria are met, create a file called DONE.md with a summary of what was accomplished.
-6. **Pollen Tracking**: If you receive cross-pollination hints (in your iteration prompt or in the Cross-Pollination Hints section below), record your decision in `POLLEN_RESPONSE.md`:
+3. Your primary deliverables are:
+   - `solution-spec.md` — the detailed concept and implementation specification
+   - `verification-spec.md` — the validation specification that proves the solution when implemented
+4. `solution-spec.md` must be implementation-ready. Include at minimum:
+   - problem framing, goals/non-goals, user flows
+   - functional requirements with stable IDs
+   - architecture/modules/data model/interfaces
+   - error cases, risks, phased implementation plan
+5. `verification-spec.md` must be execution-ready. Include at minimum:
+   - requirement-to-test mapping
+   - functional scenarios
+   - integration/system checks
+   - manual review checklist
+   - non-functional checks and definition of done
+6. You may create supporting notes or examples, but do not treat production code as the primary output unless the user explicitly asks for code deliverables.
+7. If you encounter a blocker, document it in BLOCKERS.md and move on to the next task.
+8. When all success criteria are met and both required spec files are complete, create a file called DONE.md with a summary of what was accomplished.
+9. **Pollen Tracking**: If you receive cross-pollination hints (in your iteration prompt or in the Cross-Pollination Hints section below), record your decision in `POLLEN_RESPONSE.md`:
    ```
    ## [pollen_id]: [title]
    - Decision: APPLIED | ADAPTED | SKIPPED
    - How/Reason: [explanation]
    ```
-7. **Share Discoveries**: If you find something that could help OTHER approaches to the same problem (approach-agnostic pattern, warning, data point), write it to `DISCOVERY.md`:
+10. **Share Discoveries**: If you find something that could help OTHER approaches to the same problem (approach-agnostic pattern, warning, data point), write it to `DISCOVERY.md`:
    ```
    ## [Title]
    [2-5 sentences describing the insight at pattern level]
    Type: pattern | data | strategy | warning
    ```
+    Share something only when it is reusable across universes, respects the fixed problem contract, and is backed by concrete evidence.
+    Use `warning` only for likely failures, contract violations, or meaningful security/performance/compliance risks.
 
 ## Completion Signal
-When you believe all work is complete, create a file named `DONE.md` at the project root.
+When you believe all work is complete, create both `solution-spec.md` and `verification-spec.md`, then create a file named `DONE.md` at the project root.
 This signals the orchestrator that this Universe has finished.
 
 {{!-- Cross-Pollination Hints will be appended here by Pollinator --}}

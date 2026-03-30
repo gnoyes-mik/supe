@@ -176,7 +176,7 @@ export class UniverseRunner {
 
   private buildDynamicPrompt(universe: Universe, context: IterationContext): string {
     const lines: string[] = [
-      'Read PROMPT.md and continue working on the project.',
+      'Read PROMPT.md and continue working on this universe deliverable package.',
       'Check what has been done so far (look at existing files and git log).',
       '',
       '[ITERATION CONTEXT]',
@@ -209,11 +209,21 @@ export class UniverseRunner {
     }
 
     lines.push('');
+    lines.push('[REQUIRED DELIVERABLES]');
+    lines.push('- Keep solution-spec.md updated as the primary concept + implementation spec.');
+    lines.push('- Keep verification-spec.md updated as the executable validation spec.');
+    lines.push('- Do not stop at vague ideas; make both documents implementation-ready and reviewable.');
+    lines.push('- Respect the fixed problem contract in PROMPT.md; explore the solution space, not the problem definition.');
+    lines.push('');
     lines.push('[DISCOVERY]');
     lines.push('If you find a reusable insight (approach-agnostic pattern/warning/data),');
-    lines.push('write it to DISCOVERY.md.');
+    lines.push('write it to DISCOVERY.md only when it satisfies all of the following:');
+    lines.push('- It can help another universe without forcing the same architecture.');
+    lines.push('- It does not violate the fixed problem contract.');
+    lines.push('- It includes concrete evidence or a clearly explained risk.');
+    lines.push('- Use warning only for likely failures, contract violations, or serious quality/security/compliance risks.');
     lines.push('');
-    lines.push('If all success criteria are met, create DONE.md with a summary.');
+    lines.push('If all success criteria are met and both required spec files are complete, create DONE.md with a summary.');
 
     return lines.join('\n');
   }
@@ -304,6 +314,8 @@ export class UniverseRunner {
 
   private async isComplete(universe: Universe): Promise<boolean> {
     try {
+      await access(join(universe.workdir, 'solution-spec.md'));
+      await access(join(universe.workdir, 'verification-spec.md'));
       await access(join(universe.workdir, 'DONE.md'));
       return true;
     } catch {

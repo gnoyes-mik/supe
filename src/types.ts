@@ -65,7 +65,19 @@ export interface ParsedSpec {
   successCriteria: string[]; // 성공 기준
   domain: SpecDomain; // 도메인 분류
   additionalContext: string; // 기타 맥락 정보
+  outOfScope: string[]; // 명시적 제외 범위
+  assumptions: string[]; // 시스템이 채운 가정
+  problemContract: ProblemContract; // 유니버스 전체에 고정되는 문제 계약
   universeConfigs: UniverseConfig[]; // 생성된 Universe 접근법들
+}
+
+export interface ProblemContract {
+  problemStatement: string;
+  requiredOutputs: string[];
+  hardConstraints: string[];
+  successCriteria: string[];
+  outOfScope: string[];
+  assumptions: string[];
 }
 
 export type SpecDomain =
@@ -184,6 +196,7 @@ export interface Pollen {
   createdAt: string; // ISO 8601
   cycleNumber: number; // 몇 번째 Pollen Cycle에서 생성되었는지
   sourceDiffSummary: string; // 이 Pollen을 트리거한 변경사항 요약
+  sourceEvaluation: PollenSourceEvaluation | null; // 공유/경고/거부 판단 근거
 }
 
 export type PollenType =
@@ -206,6 +219,7 @@ export interface PollenTarget {
   appliedAt: string | null; // 적용 확인 시각
   mutation: string | null; // 어떻게 변형되어 적용되었는지 설명
   rejectionReason: string | null; // 거부된 경우 이유
+  evaluation: PollenTargetEvaluation | null; // 타겟 적합성 판단 근거
 }
 
 export type PollenTargetStatus =
@@ -231,10 +245,9 @@ export interface Report {
 
   pollenStats: PollenStats;
 
-  recommendation: {
-    winnerId: string; // 추천 Universe ID
-    winnerSymbol: string;
-    reason: string; // 추천 이유 (2-3문장)
+  comparisonSummary: {
+    headline: string; // 전체 차이를 요약하는 한 줄
+    differences: string[]; // 유니버스 간 핵심 차이점 목록
   };
 }
 
@@ -243,6 +256,11 @@ export interface UniverseResult {
   symbol: string;
   name: string;
   status: UniverseStatus;
+  approach: string;
+  optimizationAxis: string;
+  tools: string[];
+  estimatedStrength: string;
+  estimatedWeakness: string;
   metrics: UniverseMetrics | null;
   highlights: string[]; // 이 Universe의 주목할 점 (2-3개)
 }
@@ -421,6 +439,51 @@ export interface DiversityCheck {
   overlapScore: number;
   problematicPairs: { a: string; b: string; reason: string }[];
   suggestions: string[];
+}
+
+export type ClarificationField =
+  | 'desiredOutputs'
+  | 'successCriteria'
+  | 'constraints'
+  | 'outOfScope';
+
+export interface ClarificationQuestion {
+  id: ClarificationField;
+  prompt: string;
+  why: string;
+}
+
+export interface AmbiguityAssessment {
+  requiresClarification: boolean;
+  blockingReasons: string[];
+  questions: ClarificationQuestion[];
+  assumptions: string[];
+}
+
+export interface AnalystRubricScores {
+  transferability: number;
+  constraintFit: number;
+  evidenceStrength: number;
+  riskSeverity: number;
+}
+
+export type PollenJudgement = 'share' | 'warning' | 'reject';
+
+export interface PollenSourceEvaluation extends AnalystRubricScores {
+  judgement: PollenJudgement;
+  rationale: string;
+}
+
+export interface PollinationRubricScores {
+  relevanceToTarget: number;
+  constraintFit: number;
+  diversityFit: number;
+  timeliness: number;
+}
+
+export interface PollenTargetEvaluation extends PollinationRubricScores {
+  finalRelevance: 'high' | 'medium' | 'low';
+  reason: string;
 }
 
 /**

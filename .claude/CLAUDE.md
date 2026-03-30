@@ -6,7 +6,8 @@ Supe is a **multiverse orchestration engine** that takes a problem definition (s
 1. Automatically designs N different approaches using LLM analysis
 2. Runs each approach in an isolated Universe with its own agent (Ralph Loop)
 3. Cross-pollinates insights between Universes periodically
-4. Produces a Morning Report comparing all results
+4. Produces per-universe `solution-spec.md` + `verification-spec.md` deliverables
+5. Produces a Morning Report comparing all universes without auto-selecting a single path
 
 **One-liner**: "Define the problem, explore all solutions simultaneously."
 
@@ -123,7 +124,7 @@ supe/
 - Do NOT use a database — JSON file persistence only
 - Do NOT build a web UI — CLI + Slack only
 - Do NOT suppress TypeScript errors with `as any` or `@ts-ignore`
-- Do NOT merge Universe results automatically — user chooses (Wavefunction Collapse)
+- Do NOT merge Universe results automatically or auto-select a single preferred universe — surface the differences clearly
 - Do NOT hard-code API keys — use environment variables via dotenv
 
 ### Key Design Decisions Already Made
@@ -139,7 +140,7 @@ supe/
 ## Worldbuilding / Theme
 
 Supe has a quantum mechanics / multiverse theme. All UI text uses this vocabulary:
-- Session states: Opening Rift → Multiverse Active → Wavefunction Collapsed
+- Session states: Opening Rift → Multiverse Active → Observation Complete
 - Universe states: Dimension Forming → Active → Stabilized → Collapsed → Frozen
 - Pollen events: Dimensional Scan → Entanglement Detected → Signal Transmitted → Synchronized/Decoherence
 - Ambient flavor messages appear in dashboard/Slack for atmosphere (see OVERVIEW.md)

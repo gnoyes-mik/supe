@@ -3,7 +3,7 @@
 > **"Don't plan. Just define."**
 >
 > 문제만 던지면 N개의 평행우주가 열리고, 각 우주가 독립적으로 해법을 탐색하며,
-> 서로의 발견을 자율적으로 교류하여, 아침에 최선의 결과를 비교하고 고른다.
+> 서로의 발견을 자율적으로 교류하여, 아침에 차이점이 선명한 결과 묶음을 남긴다.
 
 ---
 
@@ -14,8 +14,9 @@ Supe는 **문제 정의(problem statement)만 받아서, 다양한 접근법을 
 - 사용자는 **"무엇(What)"** 에만 집중 — "어떻게(How)"는 Supe가 담당
 - N개의 **근본적으로 다른 접근법**을 AI가 자동 설계 (다양성 검증 포함)
 - 각 접근법은 독립된 **Universe**에서 AI 에이전트(Claude Code / Codex)가 자율 실행
+- 각 Universe의 기본 산출물은 `solution-spec.md` + `verification-spec.md`
 - 핵심 발견은 **Cross-Pollination**으로 교차 전파 — 도입 여부는 각 Universe가 자율 판단
-- 완료 후 **Morning Report**로 정량 비교하여 최선을 선택
+- 완료 후 **Morning Report**로 차이점과 트레이드오프를 한눈에 비교
 
 ```
 사용자: "실시간 할 일 관리 앱"
@@ -24,7 +25,7 @@ Supe는 **문제 정의(problem statement)만 받아서, 다양한 접근법을 
 → Universe β: Next.js + Supabase (풀스택, 개발속도 최적화)  
 → Universe γ: FastAPI + Vue (밸런스, 확장성 최적화)
 
-→ 아침에: 3개 동작하는 앱 + 비교 리포트
+→ 아침에: 3개의 solution-spec/verification-spec 패키지 + 비교 리포트
 ```
 
 ## Quick Start
@@ -386,7 +387,7 @@ npm start -- run --spec ./specs/demo-dev.md
 |-----------------|-------------|-------------|
 | **Superposition** | N Universes | 관측 전까지 모든 해법이 동시에 존재 |
 | **Observation** | Morning Report | 결과를 관측하여 비교 |
-| **Wavefunction Collapse** | Selection | 최선의 Universe를 선택 |
+| **Observation Matrix** | Comparison | 여러 Universe의 차이를 한눈에 비교 |
 | **Entanglement** | Cross-Pollination | 한 Universe의 발견이 다른 Universe에 영향 |
 | **Decoherence** | Universe Isolation | 각 Universe는 독립 진화, Entanglement로만 교류 |
 

@@ -1,7 +1,8 @@
 import { EventEmitter } from 'events';
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import type { Pollen, PollenTarget, Session, Universe } from '../types.js';
+import type { PollinationRubricScores, Pollen, PollenTarget, Session, Universe } from '../types.js';
+import { deriveTargetRelevance, normalizePollinationRubricScores } from '../core/rubric.js';
 import { callLlmJson } from '../utils/llm.js';
 import { logger } from '../utils/logger.js';
 
@@ -30,13 +31,14 @@ export class PollenPollinator {
           appliedAt: null,
           mutation: null,
           rejectionReason: 'Rate limited: too soon since last injection',
+          evaluation: null,
         });
         continue;
       }
 
-      const relevance = await this.assessRelevance(pollen, target);
+      const evaluation = await this.assessRelevance(pollen, target);
 
-      if (relevance.relevance === 'low') {
+      if (evaluation.finalRelevance === 'low') {
         pollen.targets.push({
           universeId: target.id,
           universeSymbol: target.config.symbol,
@@ -45,28 +47,30 @@ export class PollenPollinator {
           injectedAt: null,
           appliedAt: null,
           mutation: null,
-          rejectionReason: relevance.reason,
+          rejectionReason: evaluation.reason,
+          evaluation,
         });
         this.emitter.emit('pollen:rejected', {
           pollenId: pollen.id,
           targetUniverseId: target.id,
-          reason: relevance.reason,
+          reason: evaluation.reason,
         });
         continue;
       }
 
-      await this.injectIntoPrompt(pollen, target, relevance.relevance);
+      await this.injectIntoPrompt(pollen, target, evaluation.finalRelevance);
       target.pendingPollens.push(pollen);
 
       const targetEntry: PollenTarget = {
         universeId: target.id,
         universeSymbol: target.config.symbol,
-        relevance: relevance.relevance,
+        relevance: evaluation.finalRelevance,
         status: 'injected',
         injectedAt: new Date().toISOString(),
         appliedAt: null,
         mutation: null,
         rejectionReason: null,
+        evaluation,
       };
       pollen.targets.push(targetEntry);
 
@@ -85,7 +89,11 @@ export class PollenPollinator {
   private async assessRelevance(
     pollen: Pollen,
     target: Universe
-  ): Promise<{ relevance: 'high' | 'medium' | 'low'; reason: string }> {
+  ): Promise<PollenTarget['evaluation']> {
+    const systemPrompt = `You are Supe's cross-pollination rubric.
+Preserve universe diversity while allowing useful shared insights.
+Score high only when the target can benefit without collapsing into the source approach.
+Warnings should be shareable when the risk is meaningful and contract-relevant.`;
     const prompt = `You are evaluating whether an insight from one parallel exploration should be shared with another.
 
 ## Insight (from Universe ${pollen.sourceSymbol})
@@ -95,29 +103,59 @@ ${pollen.insight}
 ## Target (Universe ${target.config.symbol})
 Approach: ${target.config.approach}
 Current work: ${target.progress.currentPhase}
+Fixed contract constraints: ${this.session.spec.parsed.problemContract.hardConstraints.join('; ') || '(none stated)'}
+Out of scope: ${this.session.spec.parsed.problemContract.outOfScope.join('; ') || '(none stated)'}
 
 ## Question
 How relevant is this insight to the target's current work?
 
 Rules:
-- "high": Directly applicable, would clearly improve the target's approach
-- "medium": Potentially useful, worth considering but not critical
-- "low": Not relevant to this approach, or the target is likely already handling this
+- Score every candidate using this rubric:
+  - relevanceToTarget: direct usefulness for the target's current work
+  - constraintFit: safety with respect to the fixed problem contract
+  - diversityFit: whether sharing this preserves the target universe's distinct approach
+  - timeliness: whether this is actionable right now
+- High/medium/low is decided by the system from these scores.
+- Warnings should still be shared when the risk is meaningful, even if the target would only adapt them partially.
+- Reject anything that would collapse distinct universes into the same approach.
 
 Respond with a JSON object (no markdown fencing):
 {
-  "relevance": "high | medium | low",
+  "scores": {
+    "relevanceToTarget": 0,
+    "constraintFit": 0,
+    "diversityFit": 0,
+    "timeliness": 0
+  },
   "reason": "One sentence explanation"
 }`;
 
     try {
-      const result = await callLlmJson<{ relevance: string; reason: string }>(prompt);
-      if (result.relevance === 'high' || result.relevance === 'low' || result.relevance === 'medium') {
-        return { relevance: result.relevance, reason: result.reason };
-      }
-      return { relevance: 'medium', reason: result.reason || 'Invalid relevance returned, defaulting to medium' };
+      const result = await callLlmJson<{
+        scores: Partial<Record<keyof PollinationRubricScores, number>>;
+        reason: string;
+      }>(prompt, { systemPrompt, maxTokens: 900 });
+      const scores = normalizePollinationRubricScores(result.scores ?? {});
+      return {
+        ...scores,
+        finalRelevance: deriveTargetRelevance(scores, pollen.type),
+        reason: typeof result.reason === 'string' && result.reason.trim().length > 0
+          ? result.reason.trim()
+          : 'Structured pollination rubric returned no rationale.',
+      };
     } catch {
-      return { relevance: 'medium', reason: 'Assessment failed, defaulting to medium' };
+      const scores = normalizePollinationRubricScores({
+        relevanceToTarget: pollen.type === 'warning' ? 55 : 50,
+        constraintFit: 50,
+        diversityFit: 50,
+        timeliness: 50,
+      });
+
+      return {
+        ...scores,
+        finalRelevance: deriveTargetRelevance(scores, pollen.type),
+        reason: 'Assessment failed, falling back to deterministic medium-safe sharing.',
+      };
     }
   }
 

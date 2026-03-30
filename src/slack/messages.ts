@@ -287,6 +287,9 @@ export function morningReportMessage(report: Report, session: Session): SlackMes
   const entanglements = report.pollenStats.notableEntanglements
     .map((e) => `• ${e.description}`)
     .join('\n');
+  const differences = report.comparisonSummary.differences
+    .map((difference) => `• ${difference}`)
+    .join('\n');
 
   const totalCost = report.universeResults.reduce(
     (sum, u) => sum + (u.metrics?.estimatedCostUsd ?? 0),
@@ -330,7 +333,7 @@ export function morningReportMessage(report: Report, session: Session): SlackMes
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*🏆 Recommendation*\nUniverse *${report.recommendation.winnerSymbol}*: ${report.recommendation.reason}`,
+          text: `*🧭 Key Differences*\n${report.comparisonSummary.headline}\n${differences || '_No comparison notes yet_'}`,
         },
       },
       {

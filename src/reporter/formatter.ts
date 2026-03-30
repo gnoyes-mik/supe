@@ -3,9 +3,8 @@ import type { Report, Session, UniverseResult } from '../types.js';
 export class ReportFormatter {
   formatForSlack(report: Report, session: Session): { text: string; blocks: unknown[] } {
     const title = session.spec.parsed.title;
-    const winner = report.recommendation;
     const headerText = `Multiverse report for ${title}`;
-    const plainText = `${headerText} - winner: ${winner.winnerSymbol}`;
+    const plainText = headerText;
 
     const universeLines = report.universeResults.map((result) => this.formatUniverseSlackLine(result));
     const rankingLines = report.rankings.map((category) => {
@@ -23,6 +22,8 @@ export class ReportFormatter {
       `Adapted: *${pollen.totalAdapted}*`,
       `Rejected: *${pollen.totalRejected}*`,
     ].join(' | ');
+
+    const differenceLines = report.comparisonSummary.differences.map((difference) => `• ${difference}`);
 
     const blocks: unknown[] = [
       {
@@ -67,7 +68,7 @@ export class ReportFormatter {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*Recommendation*\nWinner: *${winner.winnerSymbol}* (${winner.winnerId})\n${winner.reason}`,
+          text: `*Key Differences*\n*${report.comparisonSummary.headline}*\n${differenceLines.join('\n')}`,
         },
       },
     ];
@@ -95,6 +96,15 @@ export class ReportFormatter {
       }
     }
     lines.push('');
+    lines.push('◈ Universe Profiles');
+    for (const result of report.universeResults) {
+      lines.push(`  ${result.symbol} ${result.name}`);
+      lines.push(`    Axis: ${result.optimizationAxis}`);
+      lines.push(`    Tools: ${result.tools.join(', ') || 'n/a'}`);
+      lines.push(`    Strength: ${result.estimatedStrength}`);
+      lines.push(`    Weakness: ${result.estimatedWeakness}`);
+    }
+    lines.push('');
     lines.push('◈ Pollen Stats');
     lines.push(`  Created: ${report.pollenStats.totalCreated}`);
     lines.push(`  Applied: ${report.pollenStats.totalApplied}`);
@@ -109,9 +119,11 @@ export class ReportFormatter {
       }
     }
     lines.push('');
-    lines.push('◈ Recommendation');
-    lines.push(`  Winner: ${report.recommendation.winnerSymbol} (${report.recommendation.winnerId})`);
-    lines.push(`  ${report.recommendation.reason}`);
+    lines.push('◈ Key Differences');
+    lines.push(`  ${report.comparisonSummary.headline}`);
+    for (const difference of report.comparisonSummary.differences) {
+      lines.push(`  - ${difference}`);
+    }
     lines.push('');
     lines.push('◈ LLM Summary');
     lines.push(`  ${report.summary}`);
@@ -124,7 +136,8 @@ export class ReportFormatter {
     const files = metrics?.totalFiles ?? 0;
     const commits = metrics?.totalCommits ?? 0;
     const cost = metrics ? `$${metrics.estimatedCostUsd.toFixed(2)}` : 'n/a';
-    return `${result.symbol} *${result.name}* | ${result.status} | files ${files} | commits ${commits} | cost ${cost}`;
+    const tools = result.tools.slice(0, 3).join(', ') || 'n/a';
+    return `${result.symbol} *${result.name}* | axis ${result.optimizationAxis} | tools ${tools} | ${result.status} | files ${files} | commits ${commits} | cost ${cost}`;
   }
 
   private renderUniverseTable(results: UniverseResult[]): string {

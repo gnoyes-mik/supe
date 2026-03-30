@@ -95,6 +95,10 @@ export class SessionManager extends EventEmitter {
     
     await writeFile(join(sessionDir, 'spec.md'), specContent);
     await writeFile(join(sessionDir, 'parsed-spec.json'), JSON.stringify(parsedSpec, null, 2));
+    await writeFile(
+      join(sessionDir, 'problem-contract.json'),
+      JSON.stringify(parsedSpec.problemContract, null, 2),
+    );
     
     await this.saveSession(session);
     

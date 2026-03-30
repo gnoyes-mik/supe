@@ -21,10 +21,9 @@ interface RankingCategoryResponse {
   }>;
 }
 
-interface RecommendationResponse {
-  winnerId: string;
-  winnerSymbol: string;
-  reason: string;
+interface ComparisonSummaryResponse {
+  headline: string;
+  differences: string[];
 }
 
 export class ReportComparator {
@@ -39,7 +38,11 @@ export class ReportComparator {
     const rankings = await this.generateRankings(universeResults);
     const summary = await this.generateSummary(universeResults, rankings);
     const pollenStats = this.buildPollenStats();
-    const recommendation = await this.generateRecommendation(universeResults, rankings, pollenStats);
+    const comparisonSummary = await this.generateComparisonSummary(
+      universeResults,
+      rankings,
+      pollenStats,
+    );
 
     return {
       sessionId: this.session.id,
@@ -48,7 +51,7 @@ export class ReportComparator {
       universeResults,
       rankings,
       pollenStats,
-      recommendation,
+      comparisonSummary,
     };
   }
 
@@ -67,6 +70,11 @@ export class ReportComparator {
       symbol: universe.config.symbol,
       name: universe.config.name,
       status: universe.status,
+      approach: universe.config.approach,
+      optimizationAxis: universe.config.optimizationAxis,
+      tools: universe.config.tools,
+      estimatedStrength: universe.config.estimatedStrength,
+      estimatedWeakness: universe.config.estimatedWeakness,
       metrics,
       highlights: this.buildHighlights(universe, metrics),
     };
@@ -94,6 +102,8 @@ export class ReportComparator {
     } else {
       highlights.push('No metrics available yet.');
     }
+
+    highlights.push(`Primary axis: ${universe.config.optimizationAxis}.`);
 
     return highlights.slice(0, 3);
   }
@@ -230,7 +240,7 @@ Context:
 - Rankings: ${JSON.stringify(rankings, null, 2)}
 
 Guidelines:
-- Compare trade-offs, not just winners.
+- Compare trade-offs, not just rankings.
 - Mention where cross-pollination helped.
 - Keep it concrete and decision-ready.`;
 
@@ -245,15 +255,16 @@ Guidelines:
 
   private buildFallbackSummary(universeResults: UniverseResult[], rankings: RankingCategory[]): string {
     const completed = universeResults.filter((result) => result.status === 'completed').length;
-    const bestOverall = rankings[0]?.rankings[0];
-    const bestText = bestOverall
-      ? `Universe ${bestOverall.universeSymbol} led the primary category.`
-      : 'No clear winner emerged from the available rankings.';
+    const primaryAxes = universeResults
+      .map((result) => `${result.symbol}: ${result.optimizationAxis}`)
+      .join(', ');
 
     return [
       `${completed}/${universeResults.length} universes completed successfully for "${this.session.spec.parsed.title}".`,
-      'The run surfaces clear trade-offs between output volume, speed, and cost.',
-      bestText,
+      `The run surfaces clear trade-offs across these primary axes: ${primaryAxes}.`,
+      rankings.length > 0
+        ? `Comparison rankings were generated across ${rankings.length} lenses.`
+        : 'No ranking data was available, so the report focuses on qualitative differences.',
       'Cross-pollination signals indicate meaningful idea transfer across approaches.',
     ].join(' ');
   }
@@ -311,12 +322,12 @@ Guidelines:
     };
   }
 
-  private async generateRecommendation(
+  private async generateComparisonSummary(
     universeResults: UniverseResult[],
     rankings: RankingCategory[],
     pollenStats: PollenStats
-  ): Promise<Report['recommendation']> {
-    const prompt = `Pick one universe as the recommendation winner.
+  ): Promise<Report['comparisonSummary']> {
+    const prompt = `Summarize the key differences across these universes.
 
 Session context:
 - Problem: ${this.session.spec.parsed.problemStatement}
@@ -333,55 +344,68 @@ ${JSON.stringify(pollenStats, null, 2)}
 
 Respond with JSON only:
 {
-  "winnerId": "univ_xxx",
-  "winnerSymbol": "α",
-  "reason": "2-3 sentence reason balancing quality, speed, and cost"
+  "headline": "One sentence capturing the overall split between universes",
+  "differences": [
+    "3-5 concise bullets explaining how the universes differ in approach, trade-offs, or validation focus"
+  ]
 }`;
 
     try {
-      const raw = await callLlmJson<RecommendationResponse>(prompt, { maxTokens: 800 });
-      const winner = universeResults.find((result) => result.universeId === raw.winnerId);
-      if (!winner || typeof raw.reason !== 'string' || raw.reason.trim().length === 0) {
-        return this.buildFallbackRecommendation(universeResults, rankings);
+      const raw = await callLlmJson<ComparisonSummaryResponse>(prompt, { maxTokens: 900 });
+      if (
+        typeof raw.headline !== 'string'
+        || raw.headline.trim().length === 0
+        || !Array.isArray(raw.differences)
+      ) {
+        return this.buildFallbackComparisonSummary(universeResults, rankings, pollenStats);
       }
 
       return {
-        winnerId: winner.universeId,
-        winnerSymbol: winner.symbol,
-        reason: raw.reason.trim(),
+        headline: raw.headline.trim(),
+        differences: raw.differences
+          .filter((entry): entry is string => typeof entry === 'string')
+          .map((entry) => entry.trim())
+          .filter((entry) => entry.length > 0)
+          .slice(0, 5),
       };
     } catch (error) {
-      logger.warn('reporter', `Recommendation generation failed, using fallback: ${String(error)}`);
-      return this.buildFallbackRecommendation(universeResults, rankings);
+      logger.warn('reporter', `Comparison summary generation failed, using fallback: ${String(error)}`);
+      return this.buildFallbackComparisonSummary(universeResults, rankings, pollenStats);
     }
   }
 
-  private buildFallbackRecommendation(
+  private buildFallbackComparisonSummary(
     universeResults: UniverseResult[],
-    rankings: RankingCategory[]
-  ): Report['recommendation'] {
-    const completed = universeResults.filter((result) => result.status === 'completed');
-    const winner = completed[0]
-      ?? universeResults.find((result) => result.status === 'running')
-      ?? universeResults[0];
-
-    if (!winner) {
+    rankings: RankingCategory[],
+    pollenStats: PollenStats
+  ): Report['comparisonSummary'] {
+    if (universeResults.length === 0) {
       return {
-        winnerId: '',
-        winnerSymbol: '?',
-        reason: 'No universe results were available for recommendation.',
+        headline: 'No universe results were available for comparison.',
+        differences: [],
       };
     }
 
-    const primaryRanking = rankings[0]?.rankings.find((entry) => entry.universeId === winner.universeId);
-    const rankingContext = primaryRanking
-      ? `It ranks #${primaryRanking.rank} in ${rankings[0]?.category ?? 'the primary category'}.`
-      : 'It has the most complete available output in this run.';
+    const differences = universeResults.slice(0, 5).map((result) => {
+      const toolSummary = result.tools.length > 0 ? result.tools.join(', ') : 'custom stack';
+      return `Universe ${result.symbol} emphasizes ${result.optimizationAxis} via ${toolSummary}; strongest at ${result.estimatedStrength}, weakest at ${result.estimatedWeakness}.`;
+    });
+
+    if (rankings.length > 0) {
+      differences.push(
+        `The report compares universes across ${rankings.length} ranking lenses so readers can inspect trade-offs from multiple angles.`,
+      );
+    }
+
+    if (pollenStats.totalApplied + pollenStats.totalAdapted > 0) {
+      differences.push(
+        `Cross-pollination produced ${pollenStats.totalApplied + pollenStats.totalAdapted} confirmed adoptions or adaptations across universes.`,
+      );
+    }
 
     return {
-      winnerId: winner.universeId,
-      winnerSymbol: winner.symbol,
-      reason: `Universe ${winner.symbol} is the most balanced option for implementation handoff. ${rankingContext}`,
+      headline: `${universeResults.length} universes explored distinct design paths without collapsing to a single preferred path.`,
+      differences: differences.slice(0, 5),
     };
   }
 
@@ -404,14 +428,14 @@ Respond with JSON only:
   }
 
   private pickMaxKey(counts: Map<string, number>): string {
-    let winner = '-';
+    let bestKey = '-';
     let max = 0;
     for (const [key, count] of counts.entries()) {
       if (count > max) {
-        winner = key;
+        bestKey = key;
         max = count;
       }
     }
-    return winner;
+    return bestKey;
   }
 }

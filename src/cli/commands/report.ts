@@ -3,7 +3,7 @@ import { logger } from '../../utils/logger.js';
 import type { Report, Session } from '../../types.js';
 
 interface ReportComparatorApi {
-  generateReport(session: Session): Promise<Report>;
+  generateReport(): Promise<Report>;
 }
 
 interface ReportFormatterApi {
@@ -48,9 +48,9 @@ async function generateReportWithFallback(session: Session): Promise<Report> {
   const maybeCtor = (module as Record<string, unknown>).ReportComparator;
 
   if (typeof maybeCtor === 'function') {
-    const comparator = new (maybeCtor as new () => ReportComparatorApi)();
+    const comparator = new (maybeCtor as new (session: Session) => ReportComparatorApi)(session);
     if (typeof comparator.generateReport === 'function') {
-      return comparator.generateReport(session);
+      return comparator.generateReport();
     }
   }
 
@@ -73,8 +73,6 @@ async function formatReportForTerminal(report: Report, session: Session): Promis
 }
 
 function buildFallbackReport(session: Session): Report {
-  const winner = session.universes[0];
-
   return {
     sessionId: session.id,
     generatedAt: new Date().toISOString(),
@@ -84,6 +82,11 @@ function buildFallbackReport(session: Session): Report {
       symbol: universe.config.symbol,
       name: universe.config.name,
       status: universe.status,
+      approach: universe.config.approach,
+      optimizationAxis: universe.config.optimizationAxis,
+      tools: universe.config.tools,
+      estimatedStrength: universe.config.estimatedStrength,
+      estimatedWeakness: universe.config.estimatedWeakness,
       metrics: universe.metrics,
       highlights: [universe.progress.currentPhase],
     })),
@@ -93,14 +96,15 @@ function buildFallbackReport(session: Session): Report {
       totalApplied: countTargetStatus(session, 'applied'),
       totalAdapted: countTargetStatus(session, 'adapted'),
       totalRejected: countTargetStatus(session, 'rejected'),
-      mostActiveSource: winner?.config.symbol ?? '',
-      mostInfluenced: winner?.config.symbol ?? '',
+      mostActiveSource: session.universes[0]?.config.symbol ?? '',
+      mostInfluenced: session.universes[0]?.config.symbol ?? '',
       notableEntanglements: [],
     },
-    recommendation: {
-      winnerId: winner?.id ?? '',
-      winnerSymbol: winner?.config.symbol ?? '',
-      reason: winner ? `Universe ${winner.config.symbol} currently leads.` : 'No winner available.',
+    comparisonSummary: {
+      headline: `${session.universes.length} universes are being compared without auto-selecting a single preferred path.`,
+      differences: session.universes.map((universe) =>
+        `Universe ${universe.config.symbol} is optimizing for ${universe.config.optimizationAxis}.`,
+      ),
     },
   };
 }
@@ -116,6 +120,9 @@ function buildFallbackTextReport(report: Report, session: Session): string {
     ...report.universeResults.map((result) =>
       `- ${result.symbol} ${result.name}: ${result.status}`
     ),
+    '',
+    `Differences: ${report.comparisonSummary.headline}`,
+    ...report.comparisonSummary.differences.map((difference) => `- ${difference}`),
     '',
     `Pollens: ${report.pollenStats.totalCreated} created, ` +
       `${report.pollenStats.totalApplied} applied, ${report.pollenStats.totalAdapted} adapted, ` +
