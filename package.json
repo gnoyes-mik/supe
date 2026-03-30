@@ -24,7 +24,8 @@
     "prepack": "npm run build",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/**/*.test.mjs"
+    "test": "node --test test/**/*.test.mjs",
+    "pretest": "npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

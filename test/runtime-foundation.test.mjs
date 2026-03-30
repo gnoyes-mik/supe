@@ -8,6 +8,8 @@ import {
   DEFAULT_RUNTIME_RESUME_CONTRACT,
 } from '../dist/runtime/contracts.js';
 import {
+  createPresenterModelFromSession,
+  createUniversePresenterRow,
   resolveTerminalPresenterMode,
   shouldRenderInteractiveBootSequence,
 } from '../dist/runtime/presenter-model.js';
@@ -102,6 +104,93 @@ test('runtime session registry creates and updates provider session records', ()
   assert.equal(updated.currentStep, 'Comparing options');
   assert.equal(updated.lastActivityAt, '2026-03-31T00:01:00.000Z');
   assert.deepEqual(updated.transcriptTail, ['first line']);
+});
+
+test('presenter rows derive universe runtime state, progress, and highlight from session data', () => {
+  const universe = {
+    id: 'univ_123',
+    sessionId: 'ses_123',
+    config: {
+      name: 'Alpha',
+      symbol: 'α',
+      approach: 'test',
+      optimizationAxis: 'speed',
+      tools: [],
+      agent: 'codex',
+      estimatedStrength: '',
+      estimatedWeakness: '',
+    },
+    status: 'running',
+    workdir: '/tmp/univ_123',
+    gitBranch: 'universe/alpha',
+    promptPath: '/tmp/univ_123/PROMPT.md',
+    agentProcess: {
+      pid: null,
+      command: '',
+      args: [],
+      startedAt: null,
+      iterationCount: 0,
+      lastIterationAt: null,
+    },
+    progress: {
+      percentage: 50,
+      currentPhase: 'Comparing options',
+      filesCreated: 1,
+      totalCommits: 2,
+      lastCommitMessage: 'Update spec',
+      lastActivityAt: '2026-03-31T00:00:00.000Z',
+      estimatedCostUsd: 0,
+      criteriaProgress: [
+        { criterion: 'A', status: 'verified', evidence: '' },
+        { criterion: 'B', status: 'likely_done', evidence: '' },
+        { criterion: 'C', status: 'not_started', evidence: '' },
+      ],
+    },
+    metrics: null,
+    logs: [],
+    runtimeSession: {
+      provider: 'codex',
+      transport: 'app-server',
+      externalSessionId: null,
+      state: 'waiting_for_user',
+      currentStep: 'Need clarification',
+      lastActivityAt: '2026-03-31T00:00:01.000Z',
+      lastSequence: 3,
+      pendingQuestion: 'Which API?',
+      transcriptTail: [],
+    },
+    startedAt: '2026-03-31T00:00:00.000Z',
+    completedAt: null,
+    error: null,
+    restartCount: 0,
+    pendingPollens: [],
+  };
+
+  const row = createUniversePresenterRow(universe);
+  assert.equal(row.provider, 'codex');
+  assert.equal(row.state, 'waiting_for_user');
+  assert.equal(row.currentStep, 'Which API?');
+  assert.equal(row.criteriaDone, 2);
+  assert.equal(row.criteriaTotal, 3);
+  assert.equal(row.highlight, 'waiting');
+
+  const presenter = createPresenterModelFromSession({
+    id: 'ses_123',
+    status: 'running',
+    spec: { rawPath: '', raw: '', parsed: {} },
+    universes: [universe],
+    config: {},
+    slack: null,
+    pollens: [],
+    report: null,
+    startedAt: '2026-03-31T00:00:00.000Z',
+    completedAt: null,
+    error: null,
+  }, 'ink-dashboard');
+
+  assert.equal(presenter.sessionId, 'ses_123');
+  assert.equal(presenter.rows.length, 1);
+  assert.equal(presenter.rows[0].symbol, 'α');
 });
 
 test('runtime event log appends and reads back canonical events', async () => {

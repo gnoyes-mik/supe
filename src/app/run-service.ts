@@ -11,7 +11,7 @@ import {
   finalizePreparedSpec,
   prepareSpecFromRawSpec,
 } from './spec-service.js';
-import { executeSessionRuntime } from './runtime-service.js';
+import { executeSessionRuntime, type SessionRuntimeLaunchOptions } from './runtime-service.js';
 import type { ClarificationJsonData } from './contracts.js';
 
 export interface RunPreparationOptions {
@@ -127,6 +127,7 @@ export async function runPreparedSession(
   sessionManager: SessionManager,
   session: Session,
   config: GlobalConfig,
+  launchOptions?: SessionRuntimeLaunchOptions,
 ): Promise<Session> {
-  return executeSessionRuntime(sessionManager, session, config);
+  return executeSessionRuntime(sessionManager, session, config, launchOptions);
 }

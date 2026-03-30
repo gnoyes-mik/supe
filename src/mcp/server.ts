@@ -349,6 +349,7 @@ async function callTool(
         maxCost: args.maxCost,
         pollenInterval: args.pollenInterval,
         pollen: args.pollen,
+        dashboard: false,
       }, config, universeCount, defaultAgent, baseRepoPath);
 
       const prepared = await prepareSessionForRun(sessionManager, {
@@ -369,7 +370,10 @@ async function callTool(
         return prepared;
       }
 
-      const session = await runPreparedSession(sessionManager, prepared.session, config);
+      const session = await runPreparedSession(sessionManager, prepared.session, config, {
+        jsonMode: true,
+        isTTY: false,
+      });
       return {
         ...makeSessionJsonData(session),
         report: session.report,
@@ -428,7 +432,10 @@ async function callTool(
       if (!session) {
         throw new SupeServiceError('not_found', `Session ${sessionId} was not found.`);
       }
-      const resumed = await runPreparedSession(sessionManager, session, config);
+      const resumed = await runPreparedSession(sessionManager, session, config, {
+        jsonMode: true,
+        isTTY: false,
+      });
       return {
         ...makeSessionJsonData(resumed),
         report: resumed.report,

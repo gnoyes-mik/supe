@@ -93,13 +93,7 @@ export async function runCommand(opts: Record<string, unknown>): Promise<void> {
         clarificationAnswers,
         clarificationMode: nonInteractive || jsonMode ? 'return' : 'prompt',
         confirmationMode: autoYes ? 'auto_accept' : (nonInteractive || jsonMode || !input.isTTY ? 'return' : 'prompt'),
-        confirmationPrompt: async () => {
-          const proceed = await promptConfirmation('> ');
-          if (proceed && !jsonMode) {
-            console.log('Brave soul. Opening rifts in spacetime...');
-          }
-          return proceed;
-        },
+        confirmationPrompt: async () => promptConfirmation('> '),
         clarificationPrompt: async (details) => promptClarificationAnswers({
           questions: details.questions.map((question) => ({
             ...question,
@@ -139,7 +133,11 @@ export async function runCommand(opts: Record<string, unknown>): Promise<void> {
       session = prepared.session;
     }
 
-    session = await runPreparedSession(sessionManager, session, config);
+    session = await runPreparedSession(sessionManager, session, config, {
+      jsonMode,
+      isTTY: Boolean(process.stdout.isTTY),
+      dashboardEnabled: opts.dashboard !== false,
+    });
     if (jsonMode) {
       const payload: RunJsonData = {
         ...makeSessionJsonData(session),
@@ -250,8 +248,6 @@ async function promptInteractiveSpec(): Promise<string> {
     const constraints = await rl.question('\nAny constraints? (optional, separate with semicolons)\n> ');
     const outputs = await rl.question('\nWhat outputs do you expect? (optional, separate with semicolons)\n> ');
     const criteria = await rl.question('\nHow will you know it\'s solved? (optional, separate with semicolons)\n> ');
-
-    console.log('\nOpening rifts in spacetime...\n');
 
     const sections: string[] = [`# ${problem.trim()}\n`, `## Problem\n${problem.trim()}\n`];
 

@@ -78,6 +78,7 @@ export function buildSessionConfig(
     pollenInterval?: unknown;
     pollen?: unknown;
     slack?: unknown;
+    dashboard?: unknown;
   },
   config: GlobalConfig,
   universeCount: number,
@@ -106,6 +107,7 @@ export function buildSessionConfig(
     pollenEnabled: getBooleanOpt(input.pollen, true),
     slackEnabled,
     slackChannel: config.slack.defaultChannel,
+    dashboardEnabled: getBooleanOpt(input.dashboard, true),
   };
 }
 

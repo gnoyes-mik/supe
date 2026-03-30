@@ -43,6 +43,7 @@ export interface SessionConfig {
   pollenEnabled: boolean; // 기본값: true
   slackEnabled: boolean; // 기본값: true
   slackChannel: string; // 기본값: config.json의 defaultChannel
+  dashboardEnabled: boolean; // 기본값: true (TTY interactive mode only)
 }
 
 export type AgentType = 'claude' | 'codex';
