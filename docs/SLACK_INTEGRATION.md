@@ -1,3 +1,9 @@
+# NOTE
+
+This document is a historical design reference. For the current implemented behavior, prefer `src/`, `schemas/`, automated tests, and the updated README/OVERVIEW/ARCHITECTURE/CLI_SPEC/DATA_MODELS docs.
+
+---
+
 # Slack Integration
 
 > Slack은 Supe의 주요 사용자 인터페이스이자 실시간 로그 뷰어다. 각 Universe가 별도 스레드에 실시간 기록하고, 메인 채널에는 Entanglement 이벤트와 Morning Report가 포스팅된다.

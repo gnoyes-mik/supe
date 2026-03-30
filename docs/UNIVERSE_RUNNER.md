@@ -1,3 +1,9 @@
+# NOTE
+
+This document is a historical design reference. For the current implemented behavior, prefer `src/`, `schemas/`, automated tests, and the updated README/OVERVIEW/ARCHITECTURE/CLI_SPEC/DATA_MODELS docs.
+
+---
+
 # Universe Runner
 
 > 단일 Universe의 에이전트 실행 루프를 관리한다. Ralph Loop 패턴을 기반으로 하되, Supe에 맞게 확장한다.

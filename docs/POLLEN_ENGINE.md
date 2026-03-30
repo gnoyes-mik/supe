@@ -1,3 +1,9 @@
+# NOTE
+
+This document is a historical design reference. For the current implemented behavior, prefer `src/`, `schemas/`, automated tests, and the updated README/OVERVIEW/ARCHITECTURE/CLI_SPEC/DATA_MODELS docs.
+
+---
+
 # Pollen Engine — Cross-Pollination System
 
 > 단순 병렬 실행과 Supe의 결정적 차이. 각 Universe가 격리 상태에서 독립적으로 진화하되, 핵심 발견만 추상화하여 교차 전파한다. 전파된 인사이트를 채택할지 말지는 각 Universe가 자율적으로 판단한다.

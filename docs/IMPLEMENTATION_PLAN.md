@@ -1,3 +1,9 @@
+# NOTE
+
+This document is a historical design reference. For the current implemented behavior, prefer `src/`, `schemas/`, automated tests, and the updated README/OVERVIEW/ARCHITECTURE/CLI_SPEC/DATA_MODELS docs.
+
+---
+
 # Implementation Plan
 
 > 해커톤 타임라인(19시간, 수면 포함)에 맞춘 구현 순서. 의존관계를 고려하여 **반드시 이 순서대로** 구현한다.
