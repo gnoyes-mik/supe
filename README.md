@@ -15,6 +15,7 @@ Users start **Supe first**, and Supe internally uses **Claude Code** and/or **Co
 ### Core model
 - **Supe** = orchestration engine
 - **Claude Code / Codex** = internal runtimes
+- **Analysis backend** = local CLI first (`claude-cli` or `codex-cli`)
 - **Universe outputs** = `solution-spec.md`, `verification-spec.md`, `DONE.md`
 - **Session output** = comparison-first Morning Report
 
@@ -29,8 +30,8 @@ Implemented and verified internally:
 
 Still pending external validation:
 - real Claude plugin install smoke
-- real Codex host usage smoke
-- real credential-backed `start_session` full run
+- long-running end-to-end local CLI sessions that reliably emit final deliverables
+- stop/timeout behavior during extended pre-orchestration preparation
 
 ---
 
@@ -62,8 +63,12 @@ Each session produces:
 
 ### Requirements
 - Node.js 22+
-- Claude Code CLI and/or Codex CLI on PATH for runtime execution
-- Anthropic API key for LLM-backed spec/pollen/report flows
+- Claude Code CLI and/or Codex CLI on PATH
+
+Supe is now **local-CLI first**:
+- the selected analysis backend can be `claude-cli` or `codex-cli`
+- universes can run on `claude` and/or `codex`
+- an API key is only needed if you explicitly switch back to legacy `anthropic-api` analysis mode
 
 ### Install dependencies
 
@@ -105,6 +110,7 @@ supe mcp serve
 --spec <path>              required; use - for stdin
 --universes <n>            2..10
 --agent <claude|codex>     default runtime type
+--agents <list>             round-robin runtime assignment; overrides --agent
 --base-repo <path>         seed each universe from an existing repo
 --timeout <duration>       e.g. 10h, 30m
 --max-cost <usd>
@@ -132,6 +138,21 @@ supe run --spec ./spec.md
 ```bash
 cat spec.md | supe run --spec - --json --non-interactive
 ```
+
+#### Mixed runtime run
+
+```bash
+supe run --spec ./spec.md --universes 5 --agents claude,codex
+```
+
+Assignment is round-robin in declaration order:
+- α → claude
+- β → codex
+- γ → claude
+- δ → codex
+- ε → claude
+
+Only `claude` and `codex` are currently supported in `--agents`.
 
 #### Resume a session
 
@@ -224,7 +245,7 @@ These are intentionally thin entry surfaces over the Supe engine.
 
 ## Runtime model
 
-Mixed-runtime universes are supported conceptually and structurally.
+Mixed-runtime universes are now supported through `--agents`.
 A session may contain:
 - Universe α → Claude Code
 - Universe β → Codex
@@ -312,10 +333,12 @@ Fresh internal verification completed:
 - npm pack dry-run ✅
 - runtime smoke (`claude --version`, `codex --version`) ✅
 
-External live validation still pending:
-- real Claude plugin install path
-- real Codex host path
-- real LLM-backed session run
+Live validation status:
+- runtime smoke (`claude --version`, `codex --version`) ✅
+- `doctor --live` with `codex-cli` ✅
+- short local-CLI session smoke creates session artifacts ✅
+- final deliverable emission in long-running live sessions is still being tuned
+- real Claude plugin install path is still pending
 
 ---
 
@@ -323,6 +346,20 @@ External live validation still pending:
 
 `README.md` and `docs/` are now being updated from **implemented reality**.
 If any doc conflicts with code, prefer code and `npm test` evidence.
+
+## Bilingual docs
+
+The maintained docs now ship in English/Korean pairs:
+- `docs/OVERVIEW.md` / `docs/OVERVIEW_KR.md`
+- `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE_KR.md`
+- `docs/CLI_SPEC.md` / `docs/CLI_SPEC_KR.md`
+- `docs/DATA_MODELS.md` / `docs/DATA_MODELS_KR.md`
+
+Historical reference docs also now have Korean archive companions:
+- `docs/IMPLEMENTATION_PLAN.md` / `docs/IMPLEMENTATION_PLAN_KR.md`
+- `docs/POLLEN_ENGINE.md` / `docs/POLLEN_ENGINE_KR.md`
+- `docs/SLACK_INTEGRATION.md` / `docs/SLACK_INTEGRATION_KR.md`
+- `docs/UNIVERSE_RUNNER.md` / `docs/UNIVERSE_RUNNER_KR.md`
 
 ## License
 

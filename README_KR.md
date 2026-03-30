@@ -15,6 +15,7 @@ Supe가 사용자의 **주 진입점**입니다.
 ### 핵심 모델
 - **Supe** = 오케스트레이션 엔진
 - **Claude Code / Codex** = 내부 런타임
+- **분석 백엔드** = local CLI 우선 (`claude-cli` 또는 `codex-cli`)
 - **유니버스 산출물** = `solution-spec.md`, `verification-spec.md`, `DONE.md`
 - **세션 산출물** = 비교 중심 Morning Report
 
@@ -29,8 +30,8 @@ Supe가 사용자의 **주 진입점**입니다.
 
 아직 외부 검증이 필요한 항목:
 - 실제 Claude plugin 설치 smoke test
-- 실제 Codex host usage smoke test
-- 실제 credential 기반 `start_session` full run
+- 장시간 local CLI 세션에서 최종 산출물이 안정적으로 생성되는지
+- 긴 pre-orchestration 준비 단계에서 stop/timeout 동작 보강
 
 ---
 
@@ -62,8 +63,12 @@ Supe가 사용자의 **주 진입점**입니다.
 
 ### 요구사항
 - Node.js 22+
-- 런타임 실행용 Claude Code CLI 또는 Codex CLI
-- LLM 기반 spec/pollen/report 흐름을 위한 Anthropic API 키
+- PATH 상의 Claude Code CLI 또는 Codex CLI
+
+Supe는 이제 **local-CLI 우선**으로 동작합니다:
+- 분석 백엔드는 `claude-cli` 또는 `codex-cli`를 사용할 수 있습니다
+- 각 유니버스는 `claude` 또는 `codex` 런타임으로 실행됩니다
+- API 키는 legacy `anthropic-api` 분석 모드로 되돌릴 때만 필요합니다
 
 ### 의존성 설치
 
@@ -105,6 +110,7 @@ supe mcp serve
 --spec <path>              필수, stdin은 - 사용
 --universes <n>            2..10
 --agent <claude|codex>     기본 런타임 타입
+--agents <list>             round-robin 런타임 배정; --agent보다 우선
 --base-repo <path>         각 유니버스를 기존 저장소로 시드
 --timeout <duration>       예: 10h, 30m
 --max-cost <usd>
@@ -132,6 +138,21 @@ supe run --spec ./spec.md
 ```bash
 cat spec.md | supe run --spec - --json --non-interactive
 ```
+
+#### 혼합 런타임 실행
+
+```bash
+supe run --spec ./spec.md --universes 5 --agents claude,codex
+```
+
+선언 순서대로 round-robin 배정됩니다:
+- α → claude
+- β → codex
+- γ → claude
+- δ → codex
+- ε → claude
+
+현재 `--agents`에서는 `claude`, `codex`만 지원됩니다.
 
 #### 세션 재개
 
@@ -224,7 +245,7 @@ supe mcp serve
 
 ## 런타임 모델
 
-혼합 런타임 유니버스는 구조적으로 지원됩니다.  
+혼합 런타임 유니버스는 `--agents`를 통해 지원됩니다.
 예를 들어 한 세션 안에서:
 - Universe α → Claude Code
 - Universe β → Codex
@@ -312,10 +333,12 @@ Cross-Pollination은 raw code 복사가 아니라 **patterns / strategies / warn
 - npm pack dry-run ✅
 - runtime smoke (`claude --version`, `codex --version`) ✅
 
-외부 live validation은 아직 남아 있습니다:
-- 실제 Claude plugin install path
-- 실제 Codex host path
-- 실제 LLM-backed session run
+live 검증 상태:
+- runtime smoke (`claude --version`, `codex --version`) ✅
+- `codex-cli` 기준 `doctor --live` ✅
+- 짧은 local-CLI 세션 smoke로 session artifact 생성 ✅
+- 장시간 live 세션의 최종 산출물 생성은 아직 튜닝 중
+- 실제 Claude plugin install path는 아직 남아 있음
 
 ---
 
@@ -323,6 +346,20 @@ Cross-Pollination은 raw code 복사가 아니라 **patterns / strategies / warn
 
 `README.md`와 `docs/`는 이제 **구현된 현실 기준**으로 갱신됩니다.  
 문서와 코드가 충돌하면, 코드와 `npm test` 증거를 우선하세요.
+
+## 이중 언어 문서
+
+현재 유지 중인 핵심 문서는 영어/한국어 쌍으로 제공합니다:
+- `docs/OVERVIEW.md` / `docs/OVERVIEW_KR.md`
+- `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE_KR.md`
+- `docs/CLI_SPEC.md` / `docs/CLI_SPEC_KR.md`
+- `docs/DATA_MODELS.md` / `docs/DATA_MODELS_KR.md`
+
+과거 참고 문서도 한국어 보관본을 함께 제공합니다:
+- `docs/IMPLEMENTATION_PLAN.md` / `docs/IMPLEMENTATION_PLAN_KR.md`
+- `docs/POLLEN_ENGINE.md` / `docs/POLLEN_ENGINE_KR.md`
+- `docs/SLACK_INTEGRATION.md` / `docs/SLACK_INTEGRATION_KR.md`
+- `docs/UNIVERSE_RUNNER.md` / `docs/UNIVERSE_RUNNER_KR.md`
 
 ## 라이선스
 

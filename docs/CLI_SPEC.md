@@ -1,5 +1,7 @@
 # CLI Specification
 
+[한국어](./CLI_SPEC_KR.md)
+
 This document reflects the **current implemented CLI**, not the earlier design draft.
 
 ## Entry point
@@ -17,6 +19,7 @@ Key options:
 - `--spec <path>` (required, use `-` for stdin)
 - `--universes <n>`
 - `--agent <claude|codex>`
+- `--agents <claude,codex,...>`
 - `--base-repo <path>`
 - `--timeout <duration>`
 - `--max-cost <usd>`
@@ -32,10 +35,13 @@ Key options:
 
 Behavior:
 - parses raw spec
+- uses the configured analysis backend (local CLI first: `claude-cli` / `codex-cli`)
 - applies ambiguity gate to contract-level uncertainty
 - may return clarification-required JSON in non-interactive mode
 - checks multiverse stability
 - creates session + universes
+- if `--agents` is present, it overrides `--agent` and assigns runtimes round-robin in declaration order
+- rejects unsupported `--agents` values before execution
 - executes universes through the runtime layer
 
 ### `supe status [session-id]`
@@ -77,7 +83,7 @@ Supports:
 - `--json`
 
 ### `supe doctor`
-Diagnose runtime/plugin/MCP readiness.
+Diagnose runtime/plugin/MCP readiness and the selected analysis backend.
 
 Supports:
 - `--json`
@@ -144,4 +150,5 @@ run, status, report, list, stop, resume, init, setup, doctor, contracts, mcp
 
 ## Notes
 - `dashboard.tsx` still exists as a placeholder and is not the active product surface
+- `setup` prefers `claude-cli`, then `codex-cli`, for analysis if no explicit API-backed config is pinned
 - current authoritative behavior is covered by `src/cli/*` and test evidence

@@ -1,5 +1,7 @@
 # Data Models
 
+[한국어](./DATA_MODELS_KR.md)
+
 This file summarizes the **current implemented model surface**.
 For exact current types, see `src/types.ts`.
 
@@ -48,6 +50,8 @@ A universe contains:
 - logs
 - pending pollens
 
+Universe runtime assignment is materialized in `ParsedSpec.universeConfigs`. When `--agents` is provided, runtime assignment is expanded round-robin before session creation.
+
 ### Pollen
 Pollen contains:
 - abstract insight
@@ -78,6 +82,8 @@ Important public structures:
 - universe artifact paths
 - host capabilities registry
 - runtime adapter contracts
+
+Configuration also models the analysis backend separately from per-universe runtime selection. The currently implemented local analysis backends are `claude-cli` and `codex-cli`.
 
 ## Persistence artifacts
 

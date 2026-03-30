@@ -1,7 +1,9 @@
 # Overview
 
+[한국어](./OVERVIEW_KR.md)
+
 Supe is a **comparison-first multiverse orchestration engine**.
-It is the top-level product users interact with; Claude Code and Codex are internal runtimes that Supe can use per universe.
+It is the top-level product users interact with; Claude Code and Codex are internal runtimes that Supe can use per universe. The analysis/control plane is now local-CLI first as well.
 
 ## Current implemented shape
 
@@ -10,6 +12,8 @@ It is the top-level product users interact with; Claude Code and Codex are inter
 - outputs are markdown-first (`solution-spec.md`, `verification-spec.md`)
 - comparison is first-class; winner-picking is not
 - host surfaces currently include CLI, MCP, and a minimal Claude plugin surface
+- local CLI analysis backends currently support `claude-cli` and `codex-cli`
+- mixed runtime sessions are assigned via `--agents` round-robin over `claude` / `codex`
 
 ## Core principles
 - define the problem once
@@ -51,8 +55,8 @@ Implemented minimally:
 
 ## Current limitations
 - live Claude plugin install not yet validated end-to-end
-- live Codex host usage not yet validated end-to-end
-- real credential-backed full session run not yet validated in this milestone
+- long-running local CLI sessions are not yet fully validated end-to-end for final deliverable emission
+- stop/timeout behavior across extended preparation phases still needs additional live hardening
 
 ## Source of truth
 For the current state of the system, prefer:
