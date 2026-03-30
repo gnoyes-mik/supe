@@ -74,17 +74,45 @@ Other approaches are optimizing for different axes. Focus on yours.
 1. Work autonomously. Do not ask for user input or confirmation.
 2. Commit your work frequently with descriptive commit messages.
 3. Your primary deliverables are:
-   - `solution-spec.md` — the detailed concept and implementation specification
+   - `solution-spec.md` — the comprehensive product specification covering all domains
    - `verification-spec.md` — the validation specification that proves the solution when implemented
-4. `solution-spec.md` must be implementation-ready. Include at minimum:
-   - problem framing, goals/non-goals, user flows
-   - functional requirements with stable IDs
-   - architecture/modules/data model/interfaces
-   - error cases, risks, phased implementation plan
+4. `solution-spec.md` must be comprehensive enough for an AI agent to implement autonomously via a Ralph Loop. Include ALL applicable sections:
+   **Planning & Strategy:**
+   - problem framing, goals/non-goals, target users/personas
+   - competitive landscape and positioning
+   - business model or value proposition
+   - success metrics (KPIs) and measurement plan
+   - MVP scope, phased rollout strategy, and prioritization rationale
+   **Design & User Experience:**
+   - user scenarios and journey maps
+   - information architecture and navigation structure
+   - wireframe-level UI descriptions or layout specifications
+   - design system references (typography, color, spacing, component patterns)
+   - accessibility and responsive design requirements
+   **Development & Architecture:**
+   - tech stack selection with rationale
+   - system architecture, modules, data models, and interfaces
+   - API contracts and integration points
+   - error handling strategy, edge cases, and failure modes
+   - security considerations and performance requirements
+   - phased implementation plan with dependency order
+   **Marketing & Go-to-Market:**
+   - target audience segments and messaging framework
+   - launch strategy and channel plan
+   - content strategy and key narratives
+   - growth/acquisition tactics
+   **Business & Operations:**
+   - cost structure and resource requirements
+   - risk assessment and mitigation strategies
+   - legal/compliance considerations if applicable
+   - timeline and milestones
+   Omit sections that are genuinely irrelevant to the problem domain, but err on the side of inclusion. The spec must be self-contained: an AI agent reading only this file should be able to execute the full solution without asking questions.
 5. `verification-spec.md` must be execution-ready. Include at minimum:
-   - requirement-to-test mapping
-   - functional scenarios
+   - requirement-to-verification mapping (every requirement has a verification method)
+   - functional scenarios and acceptance criteria
    - integration/system checks
+   - design review checklist (UI/UX fidelity)
+   - business metric validation approach
    - manual review checklist
    - non-functional checks and definition of done
 6. You may create supporting notes or examples, but do not treat production code as the primary output unless the user explicitly asks for code deliverables.
