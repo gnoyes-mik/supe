@@ -2,6 +2,8 @@
 
 > Define the problem once, let multiple universes explore it, compare the results clearly.
 
+[한국어 README 보기](./README_KR.md)
+
 Supe is a **comparison-first multiverse orchestration engine**.
 It accepts a problem statement, locks a shared problem contract, opens multiple universes with distinct approaches, lets them exchange reusable insights, and returns per-universe deliverables plus a comparison report.
 
