@@ -17,6 +17,7 @@ export class SessionManager extends EventEmitter {
     specPath: string,
     parsedSpec: ParsedSpec,
     config: SessionConfig,
+    rawSpecOverride?: string,
   ): Promise<Session> {
     await ensureSupeHome();
     
@@ -27,7 +28,9 @@ export class SessionManager extends EventEmitter {
     await mkdir(sessionDir, { recursive: true });
     await mkdir(universesDir, { recursive: true });
     
-    const specContent = await readFile(specPath, 'utf-8');
+    const specContent = typeof rawSpecOverride === 'string'
+      ? rawSpecOverride
+      : await readFile(specPath, 'utf-8');
     
     const universes: Universe[] = parsedSpec.universeConfigs.map((uc) => {
       const symbolName = this.symbolToName(uc.symbol);
@@ -122,6 +125,9 @@ export class SessionManager extends EventEmitter {
     const sessionDir = join(getSessionsDir(), session.id);
     const sessionPath = join(sessionDir, 'session.json');
     await writeFile(sessionPath, JSON.stringify(session, null, 2));
+    if (session.report) {
+      await writeFile(join(sessionDir, 'report.json'), JSON.stringify(session.report, null, 2));
+    }
   }
 
   async getLatestSession(): Promise<Session | null> {

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supe.dev/schemas/cli/session-envelope.schema.json",
+  "title": "Supe Session Envelope",
+  "type": "object",
+  "required": ["contractVersion", "ok"],
+  "properties": {
+    "contractVersion": {
+      "type": "string",
+      "const": "2026-03-30"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "data": {
+      "type": "object",
+      "required": ["sessionId", "status", "title", "artifactPaths", "universes"],
+      "properties": {
+        "sessionId": { "type": "string" },
+        "status": { "type": "string" },
+        "title": { "type": "string" },
+        "startedAt": { "type": "string" },
+        "completedAt": { "type": ["string", "null"] },
+        "artifactPaths": {
+          "type": "object",
+          "required": ["sessionPath", "specPath", "parsedSpecPath", "problemContractPath", "reportPath"],
+          "properties": {
+            "sessionPath": { "type": "string" },
+            "specPath": { "type": "string" },
+            "parsedSpecPath": { "type": "string" },
+            "problemContractPath": { "type": "string" },
+            "reportPath": { "type": "string" }
+          }
+        },
+        "universes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["universeId", "symbol", "path", "promptPath", "solutionSpecPath", "verificationSpecPath", "donePath"],
+            "properties": {
+              "universeId": { "type": "string" },
+              "symbol": { "type": "string" },
+              "path": { "type": "string" },
+              "promptPath": { "type": "string" },
+              "solutionSpecPath": { "type": "string" },
+              "verificationSpecPath": { "type": "string" },
+              "donePath": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "details": { "type": "object" }
+      }
+    }
+  }
+}

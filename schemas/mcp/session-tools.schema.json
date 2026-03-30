@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supe.dev/schemas/mcp/session-tools.schema.json",
+  "title": "Supe MCP Session Tool Contracts",
+  "type": "object",
+  "required": ["contractVersion", "tools"],
+  "properties": {
+    "contractVersion": { "type": "string", "const": "2026-03-30" },
+    "tools": {
+      "type": "object",
+      "required": [
+        "supe.get_contracts",
+        "supe.doctor",
+        "supe.start_session",
+        "supe.get_session",
+        "supe.list_sessions",
+        "supe.get_report",
+        "supe.resume_session",
+        "supe.stop_session"
+      ],
+      "properties": {
+        "supe.get_contracts": { "$ref": "#/$defs/getContractsTool" },
+        "supe.doctor": { "$ref": "#/$defs/doctorTool" },
+        "supe.start_session": { "$ref": "#/$defs/startSessionTool" },
+        "supe.get_session": { "$ref": "#/$defs/getSessionTool" },
+        "supe.list_sessions": { "$ref": "#/$defs/listSessionsTool" },
+        "supe.get_report": { "$ref": "#/$defs/getReportTool" },
+        "supe.resume_session": { "$ref": "#/$defs/resumeSessionTool" },
+        "supe.stop_session": { "$ref": "#/$defs/stopSessionTool" }
+      }
+    }
+  },
+  "$defs": {
+    "toolContract": {
+      "type": "object",
+      "required": ["requestSchema", "responseSchema"],
+      "properties": {
+        "requestSchema": { "type": "object" },
+        "responseSchema": { "type": "object" }
+      }
+    },
+    "sessionArtifactPaths": {
+      "type": "object",
+      "required": ["sessionPath", "specPath", "parsedSpecPath", "problemContractPath", "reportPath"],
+      "properties": {
+        "sessionPath": { "type": "string" },
+        "specPath": { "type": "string" },
+        "parsedSpecPath": { "type": "string" },
+        "problemContractPath": { "type": "string" },
+        "reportPath": { "type": "string" }
+      }
+    },
+    "contractsResponse": {
+      "type": "object",
+      "required": ["contractVersion", "exitCodes", "hostCapabilities", "runtimeContracts", "schemaPaths"],
+      "properties": {
+        "contractVersion": { "type": "string" },
+        "exitCodes": { "type": "object" },
+        "hostCapabilities": { "type": "object" },
+        "runtimeContracts": { "type": "object" },
+        "schemaPaths": { "type": "object" }
+      }
+    },
+    "getContractsTool": {
+      "allOf": [
+        { "$ref": "#/$defs/toolContract" },
+        {
+          "properties": {
+            "requestSchema": {
+              "type": "object",
+              "properties": {}
+            },
+            "responseSchema": { "$ref": "#/$defs/contractsResponse" }
+          }
+        }
+      ]
+    },
+    "doctorTool": {
+      "allOf": [
+        { "$ref": "#/$defs/toolContract" },
+        {
+          "properties": {
+            "requestSchema": {
+              "type": "object",
+              "properties": {
+                "live": { "type": "boolean" }
+              }
+            },
+            "responseSchema": {
+              "type": "object",
+              "required": ["runtimes", "hostCapabilities", "runtimeContracts", "llmConfigured", "llmSmoke"],
+              "properties": {
+                "runtimes": { "type": "array" },
+                "hostCapabilities": { "type": "object" },
+                "runtimeContracts": { "type": "object" },
+                "llmConfigured": { "type": "boolean" },
+                "llmSmoke": { "type": "object" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sessionResponse": {
+      "type": "object",
+      "required": ["sessionId", "status", "title", "startedAt", "completedAt", "artifactPaths", "universes"],
+      "properties": {
+        "sessionId": { "type": "string" },
+        "status": { "type": "string" },
+        "title": { "type": "string" },
+        "startedAt": { "type": "string" },
+        "completedAt": { "type": ["string", "null"] },
+        "artifactPaths": { "$ref": "#/$defs/sessionArtifactPaths" },
+        "universes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["universeId", "symbol", "path", "promptPath", "solutionSpecPath", "verificationSpecPath", "donePath"],
+            "properties": {
+              "universeId": { "type": "string" },
+              "symbol": { "type": "string" },
+              "path": { "type": "string" },
+              "promptPath": { "type": "string" },
+              "solutionSpecPath": { "type": "string" },
+              "verificationSpecPath": { "type": "string" },
+              "donePath": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "reportResponse": {
+      "type": "object",
+      "required": ["sessionId", "generatedAt", "summary", "universeResults", "rankings", "pollenStats", "comparisonSummary"],
+      "properties": {
+        "sessionId": { "type": "string" },
+        "generatedAt": { "type": "string" },
+        "summary": { "type": "string" },
+        "universeResults": { "type": "array" },
+        "rankings": { "type": "array" },
+        "pollenStats": { "type": "object" },
+        "comparisonSummary": { "type": "object" }
+      }
+    },
+    "startSessionTool": {
+      "allOf": [
+        { "$ref": "#/$defs/toolContract" },
+        {
+          "properties": {
+            "requestSchema": {
+              "type": "object",
+              "required": ["spec"],
+              "properties": {
+                "spec": { "type": "string" },
+                "clarificationAnswers": {
+                  "type": "object",
+                  "properties": {
+                    "desiredOutputs": { "type": "string" },
+                    "successCriteria": { "type": "string" },
+                    "constraints": { "type": "string" },
+                    "outOfScope": { "type": "string" }
+                  }
+                },
+                "universes": { "type": "integer", "minimum": 2, "maximum": 10 },
+                "agent": { "type": "string", "enum": ["claude", "codex"] },
+                "nonInteractive": { "type": "boolean" },
+                "yes": { "type": "boolean" }
+              }
+            },
+            "responseSchema": { "$ref": "#/$defs/sessionResponse" }
+          }
+        }
+      ]
+    },
+    "getSessionTool": {
+      "allOf": [
+        { "$ref": "#/$defs/toolContract" },
+        {
+          "properties": {
+            "requestSchema": {
+              "type": "object",
+              "required": ["sessionId"],
+              "properties": {
+                "sessionId": { "type": "string" }
+              }
+            },
+            "responseSchema": { "$ref": "#/$defs/sessionResponse" }
+          }
+        }
+      ]
+    },
+    "listSessionsTool": {
+      "allOf": [
+        { "$ref": "#/$defs/toolContract" },
+        {
+          "properties": {
+            "requestSchema": {
+              "type": "object",
+              "properties": {}
+            },
+            "responseSchema": {
+              "type": "object",
+              "required": ["sessions"],
+              "properties": {
+                "sessions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "status", "title", "universeCount", "createdAt"],
+                    "properties": {
+                      "id": { "type": "string" },
+                      "status": { "type": "string" },
+                      "title": { "type": "string" },
+                      "universeCount": { "type": "integer" },
+                      "createdAt": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "getReportTool": {
+      "allOf": [
+        { "$ref": "#/$defs/toolContract" },
+        {
+          "properties": {
+            "requestSchema": {
+              "type": "object",
+              "required": ["sessionId"],
+              "properties": {
+                "sessionId": { "type": "string" }
+              }
+            },
+            "responseSchema": { "$ref": "#/$defs/reportResponse" }
+          }
+        }
+      ]
+    },
+    "resumeSessionTool": {
+      "allOf": [
+        { "$ref": "#/$defs/toolContract" },
+        {
+          "properties": {
+            "requestSchema": {
+              "type": "object",
+              "required": ["sessionId"],
+              "properties": {
+                "sessionId": { "type": "string" }
+              }
+            },
+            "responseSchema": { "$ref": "#/$defs/sessionResponse" }
+          }
+        }
+      ]
+    },
+    "stopSessionTool": {
+      "allOf": [
+        { "$ref": "#/$defs/toolContract" },
+        {
+          "properties": {
+            "requestSchema": {
+              "type": "object",
+              "properties": {
+                "sessionId": { "type": "string" }
+              }
+            },
+            "responseSchema": {
+              "allOf": [
+                { "$ref": "#/$defs/sessionResponse" },
+                {
+                  "type": "object",
+                  "required": ["stopped", "killedProcesses"],
+                  "properties": {
+                    "stopped": { "type": "boolean", "const": true },
+                    "killedProcesses": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["pid", "symbol"],
+                        "properties": {
+                          "pid": { "type": "integer" },
+                          "symbol": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

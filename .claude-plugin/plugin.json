@@ -1,0 +1,21 @@
+{
+  "name": "supe",
+  "version": "0.1.0",
+  "description": "Comparison-first multiverse orchestration engine that can use Claude Code and Codex as internal runtimes.",
+  "author": {
+    "name": "gnoyes"
+  },
+  "repository": "https://github.com/gnoyes-mik/supe",
+  "homepage": "https://github.com/gnoyes-mik/supe",
+  "license": "MIT",
+  "keywords": [
+    "multiverse",
+    "orchestration",
+    "comparison-first",
+    "claude-code",
+    "codex",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

@@ -1,50 +1,32 @@
+import { listSessionsDetailed } from '../../app/session-service.js';
 import { SessionManager } from '../../core/session.js';
-import type { SessionStatus } from '../../types.js';
+import { configureJsonOutput, printJsonSuccess } from '../output.js';
 
-interface SessionRow {
-  id: string;
-  status: SessionStatus;
-  title: string;
-  universeCount: number;
-  createdAt: string;
-}
-
-export async function listCommand(): Promise<void> {
+export async function listCommand(opts: Record<string, unknown> = {}): Promise<void> {
+  const jsonMode = Boolean(opts.json);
+  configureJsonOutput(jsonMode);
   const sessionManager = new SessionManager();
 
   try {
-    const listed = await sessionManager.listSessions();
-    if (listed.length === 0) {
-      console.log('No sessions found.');
-      return;
-    }
-
-    const rows: SessionRow[] = [];
-    for (const listedSession of listed) {
-      try {
-        const full = await sessionManager.loadSession(listedSession.id);
-        rows.push({
-          id: listedSession.id,
-          status: listedSession.status,
-          title: listedSession.title,
-          universeCount: full.universes.length,
-          createdAt: listedSession.startedAt,
-        });
-      } catch {
-        rows.push({
-          id: listedSession.id,
-          status: listedSession.status,
-          title: listedSession.title,
-          universeCount: 0,
-          createdAt: listedSession.startedAt,
-        });
+    const rows = await listSessionsDetailed(sessionManager);
+    if (rows.length === 0) {
+      if (jsonMode) {
+        printJsonSuccess({ sessions: [] });
+      } else {
+        console.log('No sessions found.');
       }
+      return;
     }
 
     const idWidth = Math.max(2, ...rows.map((row) => row.id.length));
     const statusWidth = Math.max(6, ...rows.map((row) => row.status.length));
     const titleWidth = Math.max(4, ...rows.map((row) => row.title.length));
     const universeWidth = Math.max(9, ...rows.map((row) => String(row.universeCount).length));
+
+    if (jsonMode) {
+      printJsonSuccess({ sessions: rows });
+      return;
+    }
 
     console.log(
       `${pad('ID', idWidth)}  ${pad('Status', statusWidth)}  ${pad('Spec Title', titleWidth)}  ` +
@@ -58,6 +40,7 @@ export async function listCommand(): Promise<void> {
       );
     }
   } finally {
+    configureJsonOutput(false);
     sessionManager.destroy();
   }
 }

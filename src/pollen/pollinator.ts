@@ -1,7 +1,14 @@
 import { EventEmitter } from 'events';
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
-import type { PollinationRubricScores, Pollen, PollenTarget, Session, Universe } from '../types.js';
+import type {
+  PollinationRubricScores,
+  Pollen,
+  PollenTarget,
+  PollenTargetEvaluation,
+  Session,
+  Universe,
+} from '../types.js';
 import { deriveTargetRelevance, normalizePollinationRubricScores } from '../core/rubric.js';
 import { callLlmJson } from '../utils/llm.js';
 import { logger } from '../utils/logger.js';
@@ -89,7 +96,7 @@ export class PollenPollinator {
   private async assessRelevance(
     pollen: Pollen,
     target: Universe
-  ): Promise<PollenTarget['evaluation']> {
+  ): Promise<PollenTargetEvaluation> {
     const systemPrompt = `You are Supe's cross-pollination rubric.
 Preserve universe diversity while allowing useful shared insights.
 Score high only when the target can benefit without collapsing into the source approach.

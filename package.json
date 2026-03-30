@@ -4,14 +4,27 @@
   "description": "Superposition — Define the problem, explore all solutions simultaneously",
   "type": "module",
   "main": "dist/index.js",
+  "files": [
+    "dist",
+    "schemas",
+    "skills",
+    ".claude-plugin",
+    ".mcp.json",
+    "README.md"
+  ],
   "bin": {
     "supe": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
+    "prepack": "npm run build",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/**/*.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

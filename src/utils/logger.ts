@@ -4,10 +4,15 @@ import type { LogEntry, LogSource } from '../types.js';
 
 export class Logger {
   private logDir: string | null = null;
+  private consoleEnabled = true;
 
   setLogDir(dir: string): void {
     this.logDir = dir;
     mkdirSync(dir, { recursive: true });
+  }
+
+  setConsoleEnabled(enabled: boolean): void {
+    this.consoleEnabled = enabled;
   }
 
   log(
@@ -28,7 +33,9 @@ export class Logger {
 
     const prefix = universeId ? `[${universeId}]` : '[session]';
     const levelTag = level.toUpperCase().padEnd(5);
-    console.log(`[${entry.timestamp}] ${levelTag} ${prefix} ${message}`);
+    if (this.consoleEnabled) {
+      console.log(`[${entry.timestamp}] ${levelTag} ${prefix} ${message}`);
+    }
 
     if (this.logDir) {
       const logPath = join(this.logDir, 'logs.jsonl');

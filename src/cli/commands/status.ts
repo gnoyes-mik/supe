@@ -1,17 +1,42 @@
+import { loadSelectedSession } from '../../app/session-service.js';
 import { SessionManager } from '../../core/session.js';
+import { SUPE_EXIT_CODES, makeSessionJsonData } from '../../app/contracts.js';
+import { configureJsonOutput, printJsonError, printJsonSuccess } from '../output.js';
 import type { Session } from '../../types.js';
 
 const FILLED_BAR = '█';
 const EMPTY_BAR = '░';
 const BAR_WIDTH = 10;
 
-export async function statusCommand(sessionId?: string): Promise<void> {
+export async function statusCommand(sessionId?: string, opts: Record<string, unknown> = {}): Promise<void> {
+  const jsonMode = Boolean(opts.json);
+  configureJsonOutput(jsonMode);
   const sessionManager = new SessionManager();
 
   try {
     const session = await loadSelectedSession(sessionManager, sessionId);
     if (!session) {
-      console.log('No session found.');
+      process.exitCode = SUPE_EXIT_CODES.NOT_FOUND;
+      if (jsonMode) {
+        printJsonError('not_found', 'No session found.');
+      } else {
+        console.log('No session found.');
+      }
+      return;
+    }
+
+    const pollenSummary = summarizePollens(session);
+    if (jsonMode) {
+      const sessionData = makeSessionJsonData(session);
+      printJsonSuccess({
+        ...sessionData,
+        elapsed: formatElapsed(session.startedAt),
+        pollenSummary,
+        universes: session.universes.map((universe) => ({
+          ...sessionData.universes.find((entry) => entry.universeId === universe.id)!,
+          progress: universe.progress,
+        })),
+      });
       return;
     }
 
@@ -31,25 +56,15 @@ export async function statusCommand(sessionId?: string): Promise<void> {
       );
     }
 
-    const pollenSummary = summarizePollens(session);
     console.log('');
     console.log(
       `Pollens: ${pollenSummary.total} total, ${pollenSummary.applied} applied, ` +
         `${pollenSummary.adapted} adapted, ${pollenSummary.rejected} rejected`
     );
   } finally {
+    configureJsonOutput(false);
     sessionManager.destroy();
   }
-}
-
-async function loadSelectedSession(
-  sessionManager: SessionManager,
-  sessionId?: string
-): Promise<Session | null> {
-  if (typeof sessionId === 'string' && sessionId.trim().length > 0) {
-    return sessionManager.loadSession(sessionId.trim());
-  }
-  return sessionManager.getLatestSession();
 }
 
 function clampPercentage(value: number): number {

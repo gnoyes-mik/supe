@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://supe.dev/schemas/cli/clarification-required.schema.json",
+  "title": "Supe Clarification Required Error",
+  "type": "object",
+  "required": ["contractVersion", "ok", "error"],
+  "properties": {
+    "contractVersion": { "type": "string", "const": "2026-03-30" },
+    "ok": { "const": false },
+    "error": {
+      "type": "object",
+      "required": ["code", "message", "details"],
+      "properties": {
+        "code": { "type": "string", "const": "clarification_required" },
+        "message": { "type": "string" },
+        "details": {
+          "type": "object",
+          "required": ["blockingReasons", "questions", "assumptions"],
+          "properties": {
+            "blockingReasons": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "questions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "prompt", "why"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "prompt": { "type": "string" },
+                  "why": { "type": "string" }
+                }
+              }
+            },
+            "assumptions": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
