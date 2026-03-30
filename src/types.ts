@@ -39,7 +39,7 @@ export interface SessionConfig {
   maxDurationMs: number; // 기본값: 36_000_000 (10시간)
   maxCostUsd: number; // 기본값: 30.0 (세션 전체)
   maxCostPerUniverseUsd: number; // 기본값: 10.0 (Universe당)
-  pollenIntervalMs: number; // 기본값: 300_000 (5분)
+  pollenIntervalMs: number; // 기본값: 60_000 (1분)
   pollenEnabled: boolean; // 기본값: true
   slackEnabled: boolean; // 기본값: true
   slackChannel: string; // 기본값: config.json의 defaultChannel

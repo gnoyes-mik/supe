@@ -328,7 +328,7 @@ Session EventEmitter → Slack 메시지 매핑. SLACK_INTEGRATION.md의 `regist
 supe run --spec test-spec.md --no-dashboard
 # → N개 Universe가 병렬 실행
 # → Slack 채널에 메인 메시지 + N개 스레드가 생성
-# → 30분마다 Pollen Cycle이 실행
+# → 1분마다 Pollen Cycle이 실행
 # → Entanglement 이벤트가 메인 스레드에 reply로 포스팅
 # → 각 Universe 스레드에 커밋 감지 + Pollen 수신 알림이 포스팅
 ```
@@ -366,10 +366,10 @@ CLI_SPEC.md의 ink 컴포넌트 구현:
 
 전체 흐름 테스트:
 ```bash
-supe run --spec test-spec.md --universes 2 --pollen-interval 5
+supe run --spec test-spec.md --universes 2 --pollen-interval 1
 # → 빠른 Pollen 주기로 2개 Universe 테스트
 # → Slack + Dashboard 동시 동작 확인
-# → 5분 후 수동 stop으로 Report 확인
+# → 1분 후 수동 stop으로 Report 확인
 ```
 
 ---
@@ -433,10 +433,10 @@ B2B 엔터프라이즈 고객을 타겟으로 한다.
 
 ```bash
 # 터미널 1: 개발 시나리오
-supe run --spec demo-dev.md --universes 3 --agents claude,codex,claude --pollen-interval 30
+supe run --spec demo-dev.md --universes 3 --agents claude,codex,claude --pollen-interval 1
 
 # 터미널 2: 비개발 시나리오 (별도 Slack 채널)
-supe run --spec demo-strategy.md --universes 3 --channel C_STRATEGY --pollen-interval 30
+supe run --spec demo-strategy.md --universes 3 --channel C_STRATEGY --pollen-interval 1
 ```
 
 ### 잠자기 전 체크리스트

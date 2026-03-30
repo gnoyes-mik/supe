@@ -67,7 +67,7 @@
 
 ### 트리거
 
-Orchestrator가 Pollen Cycle을 실행할 때 호출된다 (기본: 30분 간격).
+Orchestrator가 Pollen Cycle을 실행할 때 호출된다 (기본: 1분 간격).
 
 ### 입력
 
@@ -399,9 +399,9 @@ pollenCycle(session: Session): Promise<void>
 Session 시작
   │
   ├── 0분: Universe들 시작
-  ├── 30분: Cycle 1 (최초. 대부분 scaffolding 단계라 Pollen 적음)
-  ├── 60분: Cycle 2 (핵심 로직 구현 시작. Pollen 가능성 높음)
-  ├── 90분: Cycle 3
+  ├── 1분: Cycle 1 (최초. 대부분 scaffolding 단계라 Pollen 적음)
+  ├── 2분: Cycle 2 (핵심 로직 구현 시작. Pollen 가능성 높음)
+  ├── 3분: Cycle 3
   │   ...
   ├── N분: Cycle K (마지막)
   └── 완료: 최종 Evolution Tracking
@@ -409,8 +409,8 @@ Session 시작
 
 ### 첫 Cycle 딜레이
 
-Session 시작 후 최초 Pollen Cycle까지 최소 30분 대기한다.
-이유: 초기 scaffolding 단계에서는 범용 인사이트가 없으므로 LLM 비용 낭비.
+Session 시작 후 최초 Pollen Cycle까지 최소 1분 대기한다.
+이유: 초기 scaffolding 단계에서는 범용 인사이트가 없으므로 LLM 비용 낭비. 단, commit 2개 이상이어야 트리거된다.
 
 ---
 
