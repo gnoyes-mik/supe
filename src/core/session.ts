@@ -66,6 +66,7 @@ export class SessionManager extends EventEmitter {
         },
         metrics: null,
         logs: [],
+        runtimeSession: null,
         startedAt: null,
         completedAt: null,
         error: null,

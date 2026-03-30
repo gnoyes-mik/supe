@@ -12,6 +12,11 @@ test('contract snapshot exposes host/runtime contracts and schema paths', () => 
   assert.ok(snapshot.hostCapabilities.mcp.supportsMcp);
   assert.equal(snapshot.runtimeContracts.claude.runtime, 'claude');
   assert.equal(snapshot.runtimeContracts.codex.runtime, 'codex');
+  assert.equal(snapshot.runtimeContracts.codex.interactiveTransport, 'app-server');
+  assert.equal(snapshot.runtimeContracts.claude.interactiveTransport, 'stream-json');
+  assert.equal(snapshot.runtimeContracts.codex.canonicalTtyPresenter, 'ink');
+  assert.equal(snapshot.conversationProviders.codex.transport, 'app-server');
+  assert.equal(snapshot.conversationProviders.claude.transport, 'stream-json');
   assert.ok(snapshot.schemaPaths.cliSessionEnvelope.endsWith('schemas/cli/session-envelope.schema.json'));
   assert.ok(snapshot.schemaPaths.mcpTools.endsWith('schemas/mcp/session-tools.schema.json'));
 });
@@ -40,4 +45,6 @@ test('MCP get_contracts returns structuredContent contract snapshot', async () =
   assert.equal(response.result.structuredContent.contractVersion, '2026-03-30');
   assert.ok(response.result.structuredContent.hostCapabilities['claude-plugin']);
   assert.ok(response.result.structuredContent.runtimeContracts.codex);
+  assert.equal(response.result.structuredContent.runtimeContracts.claude.supportsStreamingOutput, true);
+  assert.equal(response.result.structuredContent.conversationProviders.codex.transport, 'app-server');
 });
