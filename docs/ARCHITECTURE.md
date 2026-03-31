@@ -2,159 +2,150 @@
 
 [한국어](./ARCHITECTURE_KR.md)
 
-This document describes the **current implemented architecture**, not the original design intent.
+This document describes the **current implemented architecture** on `main`.
 
 ## Top-level shape
 
 ```text
 User / Host
-  -> Supe CLI / MCP / Plugin surface
-    -> host-neutral app layer
-      -> core multiverse engine
-        -> analysis backend (`claude-cli` / `codex-cli` / legacy `anthropic-api`)
-        -> Claude Code / Codex universe runtimes
-          -> universe workdirs + artifacts
+  -> Supe CLI / MCP / plugin surfaces
+    -> app-layer services
+      -> core session + orchestrator
+        -> conversation runtime layer
+          -> Codex app-server provider
+          -> Claude stream-json provider
+        -> universe workdirs + artifacts
+        -> report / pollen / status surfaces
 ```
 
 ## Layer 1 — Host surfaces
 
 ### CLI
-Files:
+Key files:
 - `src/index.ts`
 - `src/cli/commands/*`
 - `src/cli/output.ts`
+- `src/cli/dashboard.tsx`
 
 Responsibilities:
-- parse commands/options
-- emit JSON or human-readable output
-- delegate to app layer
+- parse user-facing commands/options
+- choose JSON vs plain-text vs Ink presentation
+- inject replies on resume when a universe is waiting
 
 ### MCP
-Files:
+Key files:
 - `src/mcp/server.ts`
 - `.mcp.json`
 
 Responsibilities:
 - stdio MCP transport
-- tool routing
-- structuredContent responses
-- session lifecycle access via app layer
+- tool routing to app/runtime services
+- machine-readable session/report/resume surfaces
 
 ### Plugin surface
-Files:
+Key files:
 - `.claude-plugin/plugin.json`
 - `skills/*`
 
 Responsibilities:
-- host discovery/entry only
-- no orchestration logic ownership
+- host entry/discovery only
+- not the owner of runtime orchestration logic
 
-## Layer 2 — Host-neutral app layer
+## Layer 2 — App services
 
-Files:
-- `src/app/contracts.ts`
-- `src/app/contracts-service.ts`
-- `src/app/run-config.ts`
-- `src/app/spec-service.ts`
+Key files:
 - `src/app/run-service.ts`
+- `src/app/runtime-service.ts`
+- `src/app/runtime-control-service.ts`
 - `src/app/session-service.ts`
 - `src/app/report-service.ts`
-- `src/app/runtime-service.ts`
 - `src/app/stop-service.ts`
-- `src/app/setup-service.ts`
-- `src/app/preflight-service.ts`
-- `src/app/errors.ts`
+- `src/app/contracts.ts`
+- `src/app/run-config.ts`
 
 Responsibilities:
-- public contract definitions
-- spec preparation and ambiguity handling
-- session lifecycle services
-- report generation services
-- runtime execution orchestration
-- setup/doctor diagnostics
-- normalized service errors
+- prepare and launch sessions
+- manage presenter selection and dashboard rendering
+- queue reply injections for waiting universes
+- expose host-neutral JSON/MCP contracts
+- stop/cancel/report/session retrieval services
 
-## Layer 3 — Core engine
+## Layer 3 — Core session/orchestration
 
-Files:
+Key files:
 - `src/core/session.ts`
 - `src/core/orchestrator.ts`
-- `src/core/spec-parser.ts`
-- `src/core/ambiguity-gate.ts`
-- `src/core/rubric.ts`
-- `src/core/stability.ts`
 
 Responsibilities:
-- persistent session model
-- universe orchestration
-- ambiguity assessment
-- problem contract fixing
-- deterministic sharing rubric
-- stability warnings/limits
+- persist top-level session state
+- construct/manage universe runners
+- drive pollen cycles and session timeout boundaries
 
-## Layer 4 — Execution / reporting
+## Layer 4 — Conversation runtime layer
 
-### Universes
-Files:
+Key files:
+- `src/runtime/contracts.ts`
+- `src/runtime/conversation-manager.ts`
+- `src/runtime/session-registry.ts`
+- `src/runtime/event-log.ts`
+- `src/runtime/progress-mapper.ts`
+- `src/runtime/presenter-model.ts`
+- `src/runtime/providers/*`
+
+Responsibilities:
+- define canonical runtime contracts and events
+- normalize provider-specific behavior into runtime events
+- persist per-universe runtime session metadata
+- append runtime event logs under universe workdirs
+- derive presenter state from canonical runtime/session data
+- own provider-neutral reply / interrupt / cancel transitions
+
+## Layer 5 — Provider adapters
+
+### Codex
+- `src/runtime/providers/codex-app-server.ts`
+- transport: `codex app-server`
+- thread lifecycle: `thread/start`, `thread/resume`, `thread/read`
+- turn lifecycle: `turn/start`, `turn/interrupt`
+
+### Claude
+- `src/runtime/providers/claude-stream-json.ts`
+- transport: `claude --print --input-format stream-json --output-format stream-json`
+- session lifecycle via `--session-id`
+- stdout stream parsing into canonical runtime events
+
+## Universe runner
+
+Key file:
 - `src/universe/runner.ts`
-- `src/universe/prompt-builder.ts`
-- `src/universe/progress-detector.ts`
 
-### Cross-Pollination
-Files:
-- `src/pollen/analyst.ts`
-- `src/pollen/pollinator.ts`
-- `src/pollen/tracker.ts`
+Current role:
+- prepare isolated workspace + prompt contract
+- create the correct provider adapter
+- drive the `ConversationManager`
+- send iterative turns or queued user replies
+- stop on completion / failure / waiting-for-user / external stop
 
-### Reporting
-Files:
-- `src/reporter/metrics.ts`
-- `src/reporter/comparator.ts`
-- `src/reporter/formatter.ts`
+## Runtime persistence
 
-## Runtime boundary
+Per universe, Supe now persists:
+- provider + transport
+- external session/thread id
+- runtime state
+- current step
+- last activity
+- pending question
+- pending reply
+- transcript tail
+- append-only runtime event log
 
-Files:
-- `src/agents/base.ts`
-- `src/agents/claude.ts`
-- `src/agents/codex.ts`
-- `src/utils/llm.ts`
+## Presentation
 
-Responsibilities:
-- map universe execution to concrete runtime commands
-- map analysis calls to the configured backend (`claude-cli`, `codex-cli`, or legacy API)
-- keep runtime-specific assumptions out of higher orchestration layers
+### Interactive TTY
+- Ink dashboard is the default presenter
+- launch banner + pulse appear immediately
+- presenter shows rows + focused detail pane
 
-## Persistence model
-
-Session root:
-- `session.json`
-- `spec.md`
-- `parsed-spec.json`
-- `problem-contract.json`
-- `report.json`
-
-Universe root:
-- `PROMPT.md`
-- `solution-spec.md`
-- `verification-spec.md`
-- `DONE.md`
-- `.supe/universe.json`
-- `.supe/logs.jsonl`
-
-## Current contract status
-
-The public contract is currently versioned as:
-- `2026-03-30`
-
-Relevant machine-readable assets:
-- `schemas/cli/session-envelope.schema.json`
-- `schemas/cli/clarification-required.schema.json`
-- `schemas/mcp/session-tools.schema.json`
-
-## Known limitations
-- MCP `start_session` is currently synchronous
-- MCP server is minimal/handcrafted
-- long-running local CLI sessions still need more live validation to ensure final deliverables land reliably
-- stop/timeout behavior during extended preparation phases still needs hardening
-- external live validation is still required for the real Claude plugin install path
+### JSON / non-TTY
+- dashboard is bypassed
+- structured output remains the contract surface

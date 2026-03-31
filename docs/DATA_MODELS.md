@@ -2,115 +2,102 @@
 
 [한국어](./DATA_MODELS_KR.md)
 
-This file summarizes the **current implemented model surface**.
-For exact current types, see `src/types.ts`.
+This file summarizes the current model surface. For exact types, see `src/types.ts`.
 
-## Core concepts
+## Session
 
-### Session
 A session contains:
-- raw spec
-- parsed spec
-- universes
-- config
+- raw + parsed spec
+- universe list
+- session config
 - pollen history
 - report
 - timestamps and status
 
-### ParsedSpec
-Current parsed spec includes:
-- `title`
-- `problemStatement`
-- `constraints`
-- `desiredOutputs`
-- `successCriteria`
-- `domain`
-- `additionalContext`
-- `outOfScope`
-- `assumptions`
-- `problemContract`
+Notable current behavior:
+- session status still tracks the top-level lifecycle (`initializing`, `running`, `completed`, `failed`, `cancelled`)
+- provider-specific runtime detail is stored per universe, not on the session root
+
+## SessionConfig
+
+Current session config includes:
+- universe count + default agent
+- base repo path
+- dashboard enabled flag
+- duration / cost / pollen settings
+- Slack enablement/config
+
+## Universe
+
+A universe contains:
+- config (approach, symbol, runtime, optimization axis)
+- workdir / prompt path / git branch
+- progress + metrics + logs
+- pending pollens
+- `runtimeSession`
+
+## RuntimeSessionRecord
+
+Per-universe runtime metadata includes:
+- `provider`
+- `transport`
+- `externalSessionId`
+- `state`
+- `currentStep`
+- `lastActivityAt`
+- `lastSequence`
+- `pendingQuestion`
+- `pendingReply`
+- `transcriptTail`
+
+This is the main persistence surface for the conversation runtime baseline.
+
+## ParsedSpec and ProblemContract
+
+`ParsedSpec` includes:
+- title
+- problem statement
+- constraints
+- desired outputs
+- success criteria
+- domain
+- additional context
+- out-of-scope
+- assumptions
+- normalized `problemContract`
 - `universeConfigs`
 
-### ProblemContract
-A normalized contract shared by all universes:
-- problem statement
-- required outputs
-- hard constraints
-- success criteria
-- out-of-scope items
-- assumptions
+`ProblemContract` is the shared contract frozen before universes diverge.
 
-### Universe
-A universe contains:
-- config (approach, runtime, optimization axis)
-- workdir
-- prompt path
-- progress
-- metrics
-- logs
-- pending pollens
+## Pollen
 
-Universe runtime assignment is materialized in `ParsedSpec.universeConfigs`. When `--agents` is provided, runtime assignment is expanded round-robin before session creation.
+Pollen models reusable discoveries, not code patches.
+Current types include:
+- `pattern`
+- `data`
+- `strategy`
+- `warning`
 
-### Pollen
-Pollen contains:
-- abstract insight
-- type (`pattern`, `data`, `strategy`, `warning`)
-- source metadata
-- deterministic evaluation metadata
-- per-target relevance/evaluation state
+Targets track relevance and adoption/rejection state.
 
-### Report
-Current report model is comparison-first.
-It contains:
-- `summary`
-- `universeResults`
-- `rankings`
-- `pollenStats`
-- `comparisonSummary`
+## Runtime events
 
-It does **not** currently model a winner recommendation as the primary output.
+Canonical runtime events live in `src/runtime/contracts.ts`.
+They include:
+- session start
+- assistant deltas/messages
+- tool start/finish
+- file/commit updates
+- progress hints
+- needs-user-input
+- heartbeat
+- completion/failure
 
-## Public contract layer
+## Report
 
-Additional app-layer public types live in:
-- `src/app/contracts.ts`
-
-Important public structures:
-- JSON envelope
-- session artifact paths
-- universe artifact paths
-- host capabilities registry
-- runtime adapter contracts
-
-Configuration also models the analysis backend separately from per-universe runtime selection. The currently implemented local analysis backends are `claude-cli` and `codex-cli`.
-
-## Persistence artifacts
-
-Session root stores:
-- `session.json`
-- `spec.md`
-- `parsed-spec.json`
-- `problem-contract.json`
-- `report.json`
-
-Universe root stores:
-- `PROMPT.md`
-- `solution-spec.md`
-- `verification-spec.md`
-- `DONE.md`
-- `.supe/universe.json`
-- `.supe/logs.jsonl`
-
-## Machine-readable schemas
-
-Current schema files:
-- `schemas/cli/session-envelope.schema.json`
-- `schemas/cli/clarification-required.schema.json`
-- `schemas/mcp/session-tools.schema.json`
-
-## Source of truth
-
-For exact fields and enums, use:
-- `src/types.ts`
-- `src/app/contracts.ts`
+The report remains comparison-first.
+It summarizes:
+- overall session outcome
+- per-universe results
+- ranking/comparison data
+- pollen statistics

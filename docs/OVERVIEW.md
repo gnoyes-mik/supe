@@ -2,41 +2,55 @@
 
 [한국어](./OVERVIEW_KR.md)
 
-Supe is a **comparison-first multiverse orchestration engine**.
-It is the top-level product users interact with; Claude Code and Codex are internal runtimes that Supe can use per universe. The analysis/control plane is now local-CLI first as well.
+Supe is a comparison-first multiverse orchestration engine that now ships with a **merged Phase 0-6 conversation runtime baseline**.
 
 ## Current implemented shape
 
-- Supe is the entrypoint
-- universes are execution sandboxes with distinct approaches
-- outputs are markdown-first (`solution-spec.md`, `verification-spec.md`)
-- comparison is first-class; winner-picking is not
-- host surfaces currently include CLI, MCP, and a minimal Claude plugin surface
-- local CLI analysis backends currently support `claude-cli` and `codex-cli`
-- mixed runtime sessions are assigned via `--agents` round-robin over `claude` / `codex`
+- Supe is the primary entrypoint
+- universes are isolated workspaces with distinct approaches
+- runtime execution is conversational rather than purely one-shot
+- Codex runs through **app-server**
+- Claude runs through **stream-json**
+- `ConversationManager` owns provider-neutral runtime/session control
+- Ink is the default TTY dashboard surface
+- JSON and non-TTY flows bypass Ink cleanly
 
-## Core principles
-- define the problem once
-- lock the problem contract before universes diverge
-- allow solution diversity, not contract drift
-- share only reusable insights
-- compare universes explicitly at the end
+## Core workflow
 
-## Current surfaces
+1. Parse a raw problem statement
+2. Clarify only missing contract-level facts
+3. Freeze a shared problem contract
+4. Create diverse universes
+5. Run universes on `claude`, `codex`, or a mixed assignment
+6. Share reusable insights through pollen
+7. Compare resulting artifacts and generate a report
+
+## Control-plane capabilities
+
+Current runtime/control features include:
+- persisted per-universe runtime session metadata
+- append-only runtime event logs
+- provider-neutral waiting state (`waiting_for_user`)
+- resume with queued reply injection (`supe resume ... --reply ...`)
+- timeout / interrupt / cancel state propagation
+- focused dashboard detail for the most relevant universe
+
+## Current host surfaces
 
 ### CLI
 Implemented:
 - run / status / report / list / stop / resume
 - setup / doctor / contracts
-- JSON + non-interactive support
+- JSON + non-interactive behavior
 
 ### MCP
 Implemented:
 - stdio MCP server
-- contract + doctor + session lifecycle tools
+- session lifecycle tools
+- contract + doctor surfaces
 
 ### Claude plugin
-Implemented minimally:
+Implemented as a thin host surface:
 - `.claude-plugin/plugin.json`
 - `skills/`
 - `.mcp.json`
@@ -49,19 +63,14 @@ Implemented minimally:
 - `DONE.md`
 
 ### Session outputs
+- `session.json`
 - `parsed-spec.json`
 - `problem-contract.json`
 - `report.json`
 
 ## Current limitations
-- live Claude plugin install not yet validated end-to-end
-- long-running local CLI sessions are not yet fully validated end-to-end for final deliverable emission
-- stop/timeout behavior across extended preparation phases still needs additional live hardening
 
-## Source of truth
-For the current state of the system, prefer:
-1. `src/`
-2. `schemas/`
-3. test evidence
-
-This file is intentionally concise and implementation-aligned.
+Still best validated manually in real environments:
+- long-lived interactive provider sessions
+- real resume-with-reply flows against both providers
+- operational behavior around provider stalls/restarts

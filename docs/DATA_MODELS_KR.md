@@ -2,115 +2,102 @@
 
 [English](./DATA_MODELS.md)
 
-이 문서는 **현재 구현된 모델 표면**을 요약합니다.
-정확한 현재 타입은 `src/types.ts`를 확인하세요.
+이 문서는 현재 모델 표면을 요약합니다. 정확한 타입은 `src/types.ts`를 확인하세요.
 
-## 핵심 개념
+## Session
 
-### Session
 Session은 다음을 포함합니다:
-- raw spec
-- parsed spec
-- universes
-- config
+- raw + parsed spec
+- universe 목록
+- session config
 - pollen history
 - report
 - timestamp와 status
 
-### ParsedSpec
-현재 parsed spec는 다음을 포함합니다:
-- `title`
-- `problemStatement`
-- `constraints`
-- `desiredOutputs`
-- `successCriteria`
-- `domain`
-- `additionalContext`
-- `outOfScope`
-- `assumptions`
-- `problemContract`
+현재 특징:
+- session status는 상위 lifecycle (`initializing`, `running`, `completed`, `failed`, `cancelled`)를 유지한다
+- provider별 runtime detail은 session root가 아니라 universe별로 저장된다
+
+## SessionConfig
+
+현재 session config는 다음을 포함합니다:
+- universe count + default agent
+- base repo path
+- dashboard enabled flag
+- duration / cost / pollen 설정
+- Slack enablement/config
+
+## Universe
+
+Universe는 다음을 포함합니다:
+- config (approach, symbol, runtime, optimization axis)
+- workdir / prompt path / git branch
+- progress + metrics + logs
+- pending pollens
+- `runtimeSession`
+
+## RuntimeSessionRecord
+
+Universe별 runtime metadata:
+- `provider`
+- `transport`
+- `externalSessionId`
+- `state`
+- `currentStep`
+- `lastActivityAt`
+- `lastSequence`
+- `pendingQuestion`
+- `pendingReply`
+- `transcriptTail`
+
+이것이 conversation runtime baseline의 핵심 persistence surface다.
+
+## ParsedSpec / ProblemContract
+
+`ParsedSpec`는 다음을 포함합니다:
+- title
+- problem statement
+- constraints
+- desired outputs
+- success criteria
+- domain
+- additional context
+- out-of-scope
+- assumptions
+- 정규화된 `problemContract`
 - `universeConfigs`
 
-### ProblemContract
-모든 universe가 공유하는 정규화된 계약:
-- problem statement
-- required outputs
-- hard constraints
-- success criteria
-- out-of-scope items
-- assumptions
+`ProblemContract`는 universe 분기 전에 고정되는 공유 계약이다.
 
-### Universe
-Universe는 다음을 포함합니다:
-- config (approach, runtime, optimization axis)
-- workdir
-- prompt path
-- progress
-- metrics
-- logs
-- pending pollens
+## Pollen
 
-Universe runtime assignment는 `ParsedSpec.universeConfigs`에 구체화됩니다. `--agents`가 제공되면 session 생성 전에 round-robin 방식으로 runtime assignment가 확장됩니다.
+Pollen은 코드 patch가 아니라 재사용 가능한 발견을 모델링한다.
+현재 type:
+- `pattern`
+- `data`
+- `strategy`
+- `warning`
 
-### Pollen
-Pollen은 다음을 포함합니다:
-- 추상화된 insight
-- type (`pattern`, `data`, `strategy`, `warning`)
-- source metadata
-- deterministic evaluation metadata
-- target별 relevance/evaluation state
+Target은 relevance와 adoption/rejection 상태를 추적한다.
 
-### Report
-현재 report model은 comparison-first입니다.
-다음을 포함합니다:
-- `summary`
-- `universeResults`
-- `rankings`
-- `pollenStats`
-- `comparisonSummary`
+## Runtime event
 
-현재는 winner recommendation이 1차 산출물 모델이 아닙니다.
+Canonical runtime event는 `src/runtime/contracts.ts`에 있다.
+포함되는 예:
+- session start
+- assistant delta/message
+- tool start/finish
+- file/commit update
+- progress hint
+- needs-user-input
+- heartbeat
+- completion/failure
 
-## 공개 계약 레이어
+## Report
 
-추가 app-layer public type은 다음에 있습니다:
-- `src/app/contracts.ts`
-
-중요한 public 구조:
-- JSON envelope
-- session artifact paths
-- universe artifact paths
-- host capabilities registry
-- runtime adapter contracts
-
-설정은 per-universe runtime selection과 별도로 analysis backend도 모델링합니다. 현재 구현된 local analysis backend는 `claude-cli`, `codex-cli`입니다.
-
-## 영속 산출물
-
-Session root 저장물:
-- `session.json`
-- `spec.md`
-- `parsed-spec.json`
-- `problem-contract.json`
-- `report.json`
-
-Universe root 저장물:
-- `PROMPT.md`
-- `solution-spec.md`
-- `verification-spec.md`
-- `DONE.md`
-- `.supe/universe.json`
-- `.supe/logs.jsonl`
-
-## 머신 리더블 스키마
-
-현재 schema 파일:
-- `schemas/cli/session-envelope.schema.json`
-- `schemas/cli/clarification-required.schema.json`
-- `schemas/mcp/session-tools.schema.json`
-
-## 소스 오브 트루스
-
-정확한 field와 enum은 다음을 확인하세요:
-- `src/types.ts`
-- `src/app/contracts.ts`
+Report는 여전히 comparison-first다.
+주요 내용:
+- 전체 session outcome
+- universe별 결과
+- ranking/comparison 데이터
+- pollen 통계

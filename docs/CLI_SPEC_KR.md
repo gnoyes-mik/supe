@@ -2,7 +2,7 @@
 
 [English](./CLI_SPEC.md)
 
-이 문서는 초기 설계 초안이 아니라 **현재 구현된 CLI**를 설명합니다.
+이 문서는 `main` 기준 **현재 구현된 CLI**를 설명합니다.
 
 ## 진입점
 
@@ -16,7 +16,7 @@ supe <command>
 새 세션을 시작합니다.
 
 주요 옵션:
-- `--spec <path>` (필수, stdin은 `-`)
+- `--spec <path>`
 - `--universes <n>`
 - `--agent <claude|codex>`
 - `--agents <claude,codex,...>`
@@ -31,101 +31,65 @@ supe <command>
 - `--clarification-file <path>`
 - `--no-pollen`
 - `--no-dashboard`
-- `--resume <session-id>`
 
 동작:
-- raw spec를 파싱한다
-- 설정된 analysis backend를 사용한다 (local CLI 우선: `claude-cli` / `codex-cli`)
-- contract-level ambiguity에 ambiguity gate를 적용한다
-- non-interactive 모드에서는 clarification-required JSON을 반환할 수 있다
-- multiverse stability를 점검한다
-- session + universes를 생성한다
-- `--agents`가 있으면 `--agent`보다 우선하며 선언 순서대로 round-robin 배정한다
-- 지원되지 않는 `--agents` 값은 실행 전에 거부한다
-- runtime layer를 통해 universes를 실행한다
+- 문제 계약을 준비한다
+- session과 universes를 만든다
+- runtime assignment를 선택한다 (`--agent` 또는 `--agents` round-robin)
+- conversation runtime layer를 실행한다
+- interactive TTY에서는 기본적으로 Ink dashboard를 사용한다
+- JSON / non-TTY에서는 Ink를 비활성화한다
 
 ### `supe status [session-id]`
 세션 상태를 보여줍니다.
 
-지원:
-- `--json`
+현재 출력에는 다음이 포함됩니다:
+- universe progress
+- 가능할 경우 runtime session state
+- universe가 user input을 기다릴 때 waiting question
 
 ### `supe report [session-id]`
 비교 리포트를 보여줍니다.
 
-지원:
-- `--json`
-
 ### `supe list`
 세션 목록을 보여줍니다.
 
-지원:
-- `--json`
-
 ### `supe stop [session-id]`
-실행 중 세션을 중지합니다.
-
-지원:
-- `--json`
+실행 중인 세션을 중지합니다.
 
 ### `supe resume <session-id>`
 중지된 세션을 재개합니다.
 
-지원:
+지원 옵션:
 - `--json`
 - `--non-interactive`
 - `--yes`
+- `--reply <text>`
+- `--universe <symbol-or-id>`
+
+동작:
+- 저장된 runtime session state를 재개한다
+- 필요하면 waiting universe에 reply를 큐잉한 뒤 재개한다
+- waiting universe가 하나뿐이면 `--universe`를 생략할 수 있다
 
 ### `supe setup`
 runtime / integration 사전조건을 준비합니다.
 
-지원:
-- `--json`
-
 ### `supe doctor`
-runtime / plugin / MCP 준비 상태와 선택된 analysis backend를 진단합니다.
-
-지원:
-- `--json`
-- `--live`
+runtime readiness와 선택적 live connectivity를 점검합니다.
 
 ### `supe contracts`
-현재 host-neutral contract snapshot을 출력합니다.
-
-지원:
-- `--json`
+host-neutral contract snapshot을 보여줍니다.
 
 ### `supe mcp serve`
-stdio MCP server를 실행합니다.
+stdio MCP 서버를 실행합니다.
 
-## JSON 계약
+## JSON / 종료 동작
 
-### Envelope
-JSON 지원 command는 모두 다음 형태를 사용합니다:
+현재 contract version:
+- `2026-03-30`
 
-```json
-{
-  "contractVersion": "2026-03-30",
-  "ok": true,
-  "data": {}
-}
-```
-
-또는
-
-```json
-{
-  "contractVersion": "2026-03-30",
-  "ok": false,
-  "error": {
-    "code": "not_found",
-    "message": "...",
-    "details": {}
-  }
-}
-```
-
-### Exit codes
+종료 코드:
 - `0` success
 - `1` failure / runtime failure / precondition failure
 - `2` clarification required
@@ -133,22 +97,13 @@ JSON 지원 command는 모두 다음 형태를 사용합니다:
 - `4` not found
 - `5` invalid request
 
-## 비대화형 동작
+## Presentation 동작
 
-`run --non-interactive`는 prompt를 띄우지 않습니다.
-계약 정보가 부족하면 clarification-required error를 반환합니다.
+### Interactive TTY
+- Ink dashboard가 기본 presenter
+- boot banner와 pulse가 즉시 렌더링됨
+- 가장 중요한 universe에 대한 focused detail section 표시
 
-Clarification 응답 재제출 방법:
-- `--clarification-json <json>`
-- `--clarification-file <path>`
-
-## 현재 빌드된 바이너리의 command set
-
-```text
-run, status, report, list, stop, resume, init, setup, doctor, contracts, mcp
-```
-
-## Notes
-- `dashboard.tsx`는 아직 placeholder이며 현재 제품 surface가 아니다
-- 명시적으로 API 기반 구성을 고정하지 않았다면 `setup`은 `claude-cli`, 그다음 `codex-cli`를 analysis용으로 우선 선택한다
-- 현재 authoritative behavior는 `src/cli/*`와 테스트 증거로 확인한다
+### JSON / non-TTY
+- dashboard 렌더링 안 함
+- structured output 유지

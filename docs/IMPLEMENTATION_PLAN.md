@@ -2,83 +2,28 @@
 
 [한국어](./IMPLEMENTATION_PLAN_KR.md)
 
-> Historical reference only. For the current implemented behavior, prefer `src/`, `schemas/`, automated tests, and the current README / OVERVIEW / ARCHITECTURE / CLI_SPEC / DATA_MODELS docs.
+> Historical/reference document. The current implementation has already moved beyond the original hackathon plan and now includes the merged Phase 0-6 conversation-runtime baseline.
 
-## What this document used to be
+## What this document is now
 
-This file originally captured a hackathon-style execution plan for building Supe in a fixed overnight sequence.
-The Korean counterpart preserves that original detailed plan.
+This file is preserved as historical context for how Supe was originally expected to be built under time pressure.
+It is **not** the active source of truth for the current repository state.
 
-## Historical intent
+## What changed since the original plan
 
-The historical plan assumed:
-- a tightly time-boxed build window
-- phase-by-phase delivery from foundation to orchestration
-- Slack and dashboard work landing in the same milestone
-- overnight demo execution as a primary acceptance target
+The implementation now includes:
+- contract-first runtime boundaries
+- conversation-session execution for both Codex and Claude
+- Ink dashboard-first TTY presentation
+- provider-neutral reply/control flow
+- MCP and JSON contract surfaces integrated with the runtime layer
 
-## Historical phases
-
-### Phase 1 — Foundation
-The original plan front-loaded:
-- project initialization
-- core type definitions
-- utility setup
-- CLI entrypoint scaffolding
-- Handlebars prompt template setup
-
-### Phase 2 — Core engine
-The next step focused on:
-- spec parsing
-- session management
-- universe runner lifecycle
-- agent runner wiring
-- orchestrator integration
-- making `supe run` end-to-end viable
-
-### Phase 3 — Pollen + Slack
-The historical design expected the following to land together:
-- pollen analyst
-- pollen pollinator
-- pollen tracker
-- orchestrator pollen cycle
-- Slack bot bootstrap
-- Slack message formatting and event handling
-
-### Phase 4 — Reporter + Dashboard + Polish
-The original milestone then expected:
-- a reporter layer
-- a live dashboard
-- remaining CLI commands
-- quick integration testing and bug fixing
-
-### Phase 5/6 — Overnight demo and morning review
-The plan concluded with:
-- running real demo scenarios before sleep
-- reviewing reports and Slack history the next morning
-- preparing a short presentation around the resulting universes
-
-## Why it is historical now
-
-The implemented product has diverged from this exact sequence:
-- docs are now updated from implemented reality, not plan-first design
-- the output contract is spec-first (`solution-spec.md`, `verification-spec.md`)
-- host-neutral app/API/MCP boundaries are more important than the original hackathon ordering
-- local CLI-backed analysis became a first-class requirement later
-
-## What is still useful here
-
-This historical plan is still useful for understanding:
-- the original delivery pressure and sequencing assumptions
-- why some modules were grouped together conceptually
-- how Slack/dashboard/reporter features were expected to relate in the first design pass
-
-## Recommended source of truth now
+## Current source of truth
 
 Use these first:
 1. `README.md` / `README_KR.md`
-2. `docs/OVERVIEW.md` / `docs/OVERVIEW_KR.md`
-3. `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE_KR.md`
-4. `docs/CLI_SPEC.md` / `docs/CLI_SPEC_KR.md`
-5. `docs/DATA_MODELS.md` / `docs/DATA_MODELS_KR.md`
+2. `docs/OVERVIEW*.md`
+3. `docs/ARCHITECTURE*.md`
+4. `docs/CLI_SPEC*.md`
+5. `docs/DATA_MODELS*.md`
 6. `src/` and automated tests

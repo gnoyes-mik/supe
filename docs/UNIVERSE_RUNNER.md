@@ -1,89 +1,56 @@
-# Historical Universe Runner Reference
+# Universe Runner Reference
 
 [한국어](./UNIVERSE_RUNNER_KR.md)
 
-> Historical reference only. For the current implemented runner behavior, prefer `src/universe/runner.ts`, `src/universe/prompt-builder.ts`, `src/universe/progress-detector.ts`, and the current architecture docs.
+This document summarizes the **current implemented runner behavior**.
 
-## Historical role of the universe runner
+## Current role
 
-The universe runner was designed to own the lifecycle of a single universe.
-Its purpose was to:
-- prepare an isolated workspace
-- initialize git state
-- generate a prompt contract
-- repeatedly invoke an agent runtime
-- track progress toward success criteria
-- stop on completion, failure, or external shutdown conditions
+`src/universe/runner.ts` no longer acts as only a one-shot subprocess loop.
+It now serves as a **conversation-session supervisor** for a single universe.
 
-## Historical lifecycle
+Its responsibilities are:
+- prepare the isolated universe workspace
+- initialize git/workdir state
+- generate `PROMPT.md`
+- choose the correct conversation provider (`claude` or `codex`)
+- create and drive the `ConversationManager`
+- send iterative turns and queued user replies
+- update progress/metrics/state
+- stop on completion, failure, waiting-for-user, or orchestrator shutdown
 
-### 1. Setup phase
-The historical setup phase included:
-- creating a work directory
-- initializing a git repository / branch
-- generating `PROMPT.md`
-- writing internal state files under `.supe/`
-- making an initial prompt/setup commit
+## Lifecycle
 
-### 2. Execution loop
-The historical loop was Ralph-inspired and assumed repeated iterations of:
-- gathering current state
-- building a fresh iteration prompt
-- invoking the agent once
-- observing changed files / commits / completion markers
-- updating progress and metrics
-- deciding whether to continue or stop
+### 1. Setup
+- initialize repo/workdir
+- create `.supe/` state area
+- generate and commit `PROMPT.md`
 
-### 3. Completion / stop detection
-The runner was expected to terminate when:
-- the required deliverables existed
-- criteria appeared satisfied
-- the universe hit failure or stop limits
-- the orchestrator requested shutdown
+### 2. Runtime start
+- mark the universe running
+- emit `universe:started`
+- create the provider adapter
+- start or resume the provider-backed conversation session
 
-## Historical prompt structure
+### 3. Conversation loop
+For each cycle, the runner:
+- builds iteration context
+- sends either a normal next-turn prompt or a queued user reply
+- waits for provider-backed completion or error
+- updates universe progress and runtime session state
+- stops if the universe reaches `waiting_for_user`
 
-The prompt surface was meant to include:
-- the shared problem to solve
-- that universe's specific approach
-- recommended tools / stack
-- optimization axis
-- constraints / desired outputs / success criteria
-- working rules and completion signal expectations
-
-This is why `templates/universe-prompt.md.hbs` and the prompt builder were central to the design.
-
-## Historical progress model
-
-The design coupled progress with:
-- success criteria tracking
-- file creation counts
-- commit counts
-- last activity timestamps
-- estimated cost and restart count
-
-That model still explains many fields that exist on the universe/session state today.
-
-## What changed in the current implementation
-
-The implemented system now also emphasizes:
-- fixed problem contracts before divergence
-- host-neutral orchestration boundaries
-- local CLI-backed analysis
-- explicit runtime assignment (`claude` / `codex`, including `--agents` round-robin)
-
-## Why keep this document
-
-This historical reference is still useful for understanding:
-- why the runner has setup / loop / persistence responsibilities
-- why prompt generation is separated from raw runtime invocation
-- why success criteria and progress tracking are embedded in the universe model
+### 4. Completion
+The runner ends when:
+- required deliverables exist
+- the universe hits stop/failure limits
+- the orchestrator requests stop
 
 ## Current source of truth
 
 Use these first:
 - `src/universe/runner.ts`
+- `src/runtime/conversation-manager.ts`
+- `src/runtime/providers/*`
 - `src/universe/prompt-builder.ts`
-- `src/universe/progress-detector.ts`
-- `docs/ARCHITECTURE.md`
 - `src/types.ts`

@@ -2,7 +2,7 @@
 
 [한국어](./CLI_SPEC_KR.md)
 
-This document reflects the **current implemented CLI**, not the earlier design draft.
+This document reflects the **current implemented CLI** on `main`.
 
 ## Entry point
 
@@ -16,7 +16,7 @@ supe <command>
 Start a new session.
 
 Key options:
-- `--spec <path>` (required, use `-` for stdin)
+- `--spec <path>`
 - `--universes <n>`
 - `--agent <claude|codex>`
 - `--agents <claude,codex,...>`
@@ -31,101 +31,65 @@ Key options:
 - `--clarification-file <path>`
 - `--no-pollen`
 - `--no-dashboard`
-- `--resume <session-id>`
 
 Behavior:
-- parses raw spec
-- uses the configured analysis backend (local CLI first: `claude-cli` / `codex-cli`)
-- applies ambiguity gate to contract-level uncertainty
-- may return clarification-required JSON in non-interactive mode
-- checks multiverse stability
-- creates session + universes
-- if `--agents` is present, it overrides `--agent` and assigns runtimes round-robin in declaration order
-- rejects unsupported `--agents` values before execution
-- executes universes through the runtime layer
+- prepares the problem contract
+- creates a session and universes
+- selects runtime assignment (`--agent` or `--agents` round-robin)
+- launches the conversation runtime layer
+- uses Ink dashboard by default for interactive TTY runs
+- suppresses Ink in JSON and non-TTY modes
 
 ### `supe status [session-id]`
 Show session status.
 
-Supports:
-- `--json`
+Current output includes:
+- universe progress
+- runtime session state when available
+- waiting question when a universe is blocked on user input
 
 ### `supe report [session-id]`
 Show a comparison report.
 
-Supports:
-- `--json`
-
 ### `supe list`
 List sessions.
-
-Supports:
-- `--json`
 
 ### `supe stop [session-id]`
 Stop a running session.
 
-Supports:
-- `--json`
-
 ### `supe resume <session-id>`
 Resume a stopped session.
 
-Supports:
+Supported options:
 - `--json`
 - `--non-interactive`
 - `--yes`
+- `--reply <text>`
+- `--universe <symbol-or-id>`
+
+Behavior:
+- resumes the stored runtime session state
+- optionally queues a reply into a waiting universe before resume
+- if only one universe is waiting, `--universe` may be omitted
 
 ### `supe setup`
 Prepare runtime/integration prerequisites.
 
-Supports:
-- `--json`
-
 ### `supe doctor`
-Diagnose runtime/plugin/MCP readiness and the selected analysis backend.
-
-Supports:
-- `--json`
-- `--live`
+Inspect runtime readiness and optional live connectivity.
 
 ### `supe contracts`
-Print the current host-neutral contract snapshot.
-
-Supports:
-- `--json`
+Show the host-neutral contract snapshot.
 
 ### `supe mcp serve`
 Run the stdio MCP server.
 
-## JSON contract
+## JSON and exit behavior
 
-### Envelope
-All JSON-capable commands emit:
+Current contract version:
+- `2026-03-30`
 
-```json
-{
-  "contractVersion": "2026-03-30",
-  "ok": true,
-  "data": {}
-}
-```
-
-or
-
-```json
-{
-  "contractVersion": "2026-03-30",
-  "ok": false,
-  "error": {
-    "code": "not_found",
-    "message": "...",
-    "details": {}
-  }
-}
-```
-
-### Exit codes
+Exit codes:
 - `0` success
 - `1` failure / runtime failure / precondition failure
 - `2` clarification required
@@ -133,22 +97,13 @@ or
 - `4` not found
 - `5` invalid request
 
-## Non-interactive behavior
+## Presentation behavior
 
-`run --non-interactive` never prompts.
-If contract information is missing, it returns a clarification-required error instead.
+### Interactive TTY
+- Ink dashboard is the default presenter
+- boot banner and pulse render immediately
+- focused detail section is shown for the most relevant universe
 
-Clarification answers can be re-submitted via:
-- `--clarification-json <json>`
-- `--clarification-file <path>`
-
-## Current command set from built binary
-
-```text
-run, status, report, list, stop, resume, init, setup, doctor, contracts, mcp
-```
-
-## Notes
-- `dashboard.tsx` still exists as a placeholder and is not the active product surface
-- `setup` prefers `claude-cli`, then `codex-cli`, for analysis if no explicit API-backed config is pinned
-- current authoritative behavior is covered by `src/cli/*` and test evidence
+### JSON / non-TTY
+- no dashboard rendering
+- structured output remains stable

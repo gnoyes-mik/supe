@@ -1,76 +1,48 @@
 # Supe (Superposition)
 
-> Define the problem once, let multiple universes explore it, compare the results clearly.
+> Define one problem contract, let multiple universes explore it with Codex and Claude, then compare the results clearly.
 
 [한국어 README 보기](./README_KR.md)
 
-Supe is a **comparison-first multiverse orchestration engine**.
-It accepts a problem statement, locks a shared problem contract, opens multiple universes with distinct approaches, lets them exchange reusable insights, and returns per-universe deliverables plus a comparison report.
+Supe is a **comparison-first multiverse orchestration engine**. It accepts a problem statement, locks a shared contract, creates multiple universes with distinct approaches, lets them exchange reusable insights, and returns universe artifacts plus a comparison report.
 
 ## Current Product Shape
 
-Supe is the primary entrypoint.
-Users start **Supe first**, and Supe internally uses **Claude Code** and/or **Codex** as runtime workers.
+The current `main` branch includes the merged **Phase 0-6 conversation runtime baseline**:
 
-### Core model
-- **Supe** = orchestration engine
-- **Claude Code / Codex** = internal runtimes
-- **Analysis backend** = local CLI first (`claude-cli` or `codex-cli`)
+- contract-first runtime model
+- Ink dashboard for interactive TTY runs
+- Codex conversational runtime via **app-server**
+- Claude conversational runtime via **stream-json**
+- provider-neutral conversation control through Supe
+- persisted runtime session metadata and event logs
+- mixed-provider universe sessions
+- reply/resume flow for universes waiting on user input
+
+### Runtime model
+- **Supe** = orchestration + control plane
+- **Codex / Claude Code** = internal provider runtimes
+- **ConversationManager** = provider-neutral runtime/session owner
 - **Universe outputs** = `solution-spec.md`, `verification-spec.md`, `DONE.md`
-- **Session output** = comparison-first Morning Report
-
-### Current status
-Implemented and verified internally:
-- host-neutral app/service layer
-- JSON + non-interactive CLI contract
-- minimal MCP server
-- minimal Claude plugin surface
-- setup/doctor/contracts commands
-- packaging surface for npm/plugin distribution
-
-Still pending external validation:
-- real Claude plugin install smoke
-- long-running end-to-end local CLI sessions that reliably emit final deliverables
-- stop/timeout behavior during extended pre-orchestration preparation
-
----
+- **Session outputs** = `session.json`, `parsed-spec.json`, `problem-contract.json`, `report.json`
 
 ## What Supe Does
 
-1. Parses a free-form problem statement
-2. Detects ambiguity around **what must be built**
-3. Requires clarification only for missing contract-level facts
-4. Generates diverse universes with different optimization axes
-5. Runs universes with Claude Code and/or Codex
-6. Shares reusable discoveries through Cross-Pollination
-7. Produces per-universe spec artifacts and a comparison report
-
-### Output shape
-Each universe is expected to produce:
-- `solution-spec.md`
-- `verification-spec.md`
-- `DONE.md`
-
-Each session produces:
-- `session.json`
-- `parsed-spec.json`
-- `problem-contract.json`
-- `report.json`
-
----
+1. Parse a free-form problem statement
+2. Clarify only missing **contract-level** facts
+3. Generate diverse universes with distinct optimization axes
+4. Run universes on `claude`, `codex`, or a round-robin mix
+5. Exchange reusable discoveries through Cross-Pollination
+6. Persist per-universe runtime session state and event history
+7. Return per-universe deliverables and a comparison-first report
 
 ## Installation
 
 ### Requirements
 - Node.js 22+
-- Claude Code CLI and/or Codex CLI on PATH
+- Claude Code CLI and/or Codex CLI on `PATH`
 
-Supe is now **local-CLI first**:
-- the selected analysis backend can be `claude-cli` or `codex-cli`
-- universes can run on `claude` and/or `codex`
-- an API key is only needed if you explicitly switch back to legacy `anthropic-api` analysis mode
-
-### Install dependencies
+### Setup
 
 ```bash
 git clone https://github.com/gnoyes-mik/supe.git
@@ -79,15 +51,13 @@ npm install
 npm run build
 ```
 
-### Initialize / inspect environment
+### Environment checks
 
 ```bash
 supe setup
 supe doctor
 supe doctor --json
 ```
-
----
 
 ## CLI Surface
 
@@ -97,7 +67,7 @@ supe status [session-id] [--json]
 supe report [session-id] [--json]
 supe list [--json]
 supe stop [session-id] [--json]
-supe resume <session-id> [--json]
+supe resume <session-id> [--json] [--reply <text>] [--universe <symbol-or-id>]
 supe contracts [--json]
 supe setup [--json]
 supe doctor [--json] [--live]
@@ -107,12 +77,12 @@ supe mcp serve
 ### Key `run` options
 
 ```bash
---spec <path>              required; use - for stdin
---universes <n>            2..10
---agent <claude|codex>     default runtime type
---agents <list>             round-robin runtime assignment; overrides --agent
---base-repo <path>         seed each universe from an existing repo
---timeout <duration>       e.g. 10h, 30m
+--spec <path>
+--universes <n>
+--agent <claude|codex>
+--agents <claude,codex,...>
+--base-repo <path>
+--timeout <duration>
 --max-cost <usd>
 --pollen-interval <min>
 --json
@@ -122,89 +92,52 @@ supe mcp serve
 --clarification-file <path>
 --no-pollen
 --no-dashboard
---resume <session-id>
 ```
+
+### Resume and reply
+
+When a universe reaches `waiting_for_user`, you can resume the session and inject the reply through Supe:
+
+```bash
+supe resume ses_abc123 --reply "Use the REST API" --universe α
+```
+
+If only one universe is waiting, `--universe` is optional.
 
 ### Examples
 
-#### Interactive run
-
 ```bash
 supe run --spec ./spec.md
-```
-
-#### Non-interactive stdin run
-
-```bash
 cat spec.md | supe run --spec - --json --non-interactive
-```
-
-#### Mixed runtime run
-
-```bash
 supe run --spec ./spec.md --universes 5 --agents claude,codex
-```
-
-Assignment is round-robin in declaration order:
-- α → claude
-- β → codex
-- γ → claude
-- δ → codex
-- ε → claude
-
-Only `claude` and `codex` are currently supported in `--agents`.
-
-#### Resume a session
-
-```bash
-supe resume ses_abc123 --json
-```
-
-#### Inspect contracts
-
-```bash
+supe resume ses_abc123 --reply "Use PostgreSQL" --universe beta
 supe contracts --json
 ```
 
----
+## Runtime and Presentation Behavior
 
-## JSON / Non-interactive behavior
+### Interactive TTY
+- Ink dashboard is the default presenter
+- launch banner + boot pulse appear immediately
+- dashboard shows provider, state, step, criteria progress, and focused detail
 
-Supe now exposes a versioned machine-readable contract.
+### JSON / non-TTY
+- Ink output is suppressed
+- machine-readable JSON behavior remains intact
 
-### Current contract version
-- `2026-03-30`
-
-### Exit codes
-- `0` success
-- `1` failure / precondition failure / runtime failure
-- `2` clarification required
-- `3` confirmation required
-- `4` not found
-- `5` invalid request
-
-### Clarification behavior
-Supe only asks questions about the **problem contract**, not the solution approach.
-
-Examples of clarifiable items:
-- required outputs
-- success criteria
-- hard constraints
-- out-of-scope items
-
-If `--non-interactive` or `--json` is used, Supe returns a structured clarification error instead of prompting.
-
----
+### Supported providers
+- **Codex**: app-server transport
+- **Claude**: `--print --input-format stream-json --output-format stream-json`
 
 ## MCP Integration
 
-Supe includes a minimal stdio MCP server:
+Supe includes a stdio MCP server:
 
 ```bash
 supe mcp serve
 ```
 
-### Current MCP tools
+Current MCP tools:
 - `supe.get_contracts`
 - `supe.doctor`
 - `supe.start_session`
@@ -214,153 +147,29 @@ supe mcp serve
 - `supe.resume_session`
 - `supe.stop_session`
 
-### MCP config
-Repository root includes:
-- `.mcp.json`
+`supe.resume_session` also supports reply-driven resume semantics through tool arguments.
 
-Current config targets plugin-root execution:
-- `${CLAUDE_PLUGIN_ROOT}/dist/index.js mcp serve`
+## Docs Map
 
----
+- [`docs/OVERVIEW.md`](./docs/OVERVIEW.md)
+- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- [`docs/CLI_SPEC.md`](./docs/CLI_SPEC.md)
+- [`docs/DATA_MODELS.md`](./docs/DATA_MODELS.md)
+- [`docs/UNIVERSE_RUNNER.md`](./docs/UNIVERSE_RUNNER.md)
 
-## Claude plugin surface
+Historical/reference docs still exist under `docs/`, but they are now aligned with the current merged source and explicitly marked when they are primarily historical.
 
-Repository root includes:
-- `.claude-plugin/plugin.json`
-- `skills/`
+## Current Limitations
 
-Current skills:
-- `supe-run`
-- `supe-status`
-- `supe-report`
-- `supe-resume`
-- `supe-stop`
-- `supe-setup`
-- `supe-doctor`
-- `supe-contracts`
+Still worth manual smoke-testing in real environments:
+- long-running interactive provider sessions with real user replies
+- real Claude plugin install/use flow
+- operational behavior under long provider stalls/restarts
 
-These are intentionally thin entry surfaces over the Supe engine.
+## Source of Truth
 
----
-
-## Runtime model
-
-Mixed-runtime universes are now supported through `--agents`.
-A session may contain:
-- Universe α → Claude Code
-- Universe β → Codex
-- Universe γ → Claude Code
-
-Cross-Pollination works by sharing **patterns / strategies / warnings**, not raw code copying.
-
----
-
-## Architecture Summary
-
-### Host surfaces
-- CLI
-- MCP
-- Claude plugin metadata + skills
-
-### Host-neutral app layer
-- `src/app/contracts.ts`
-- `src/app/run-config.ts`
-- `src/app/spec-service.ts`
-- `src/app/run-service.ts`
-- `src/app/session-service.ts`
-- `src/app/report-service.ts`
-- `src/app/runtime-service.ts`
-- `src/app/stop-service.ts`
-- `src/app/setup-service.ts`
-
-### Core engine
-- `src/core/session.ts`
-- `src/core/orchestrator.ts`
-- `src/core/spec-parser.ts`
-- `src/core/ambiguity-gate.ts`
-- `src/core/rubric.ts`
-
-### Execution / sharing
-- `src/universe/*`
-- `src/pollen/*`
-- `src/reporter/*`
-
-### Integration surfaces
-- `src/mcp/server.ts`
-- `src/cli/*`
-- `.claude-plugin/`
-- `skills/`
-- `schemas/`
-
----
-
-## Filesystem outputs
-
-Session root:
-
-```text
-~/.supe/sessions/<session-id>/
-  session.json
-  spec.md
-  parsed-spec.json
-  problem-contract.json
-  report.json
-  universes/
-```
-
-Universe root:
-
-```text
-<universe>/
-  PROMPT.md
-  solution-spec.md
-  verification-spec.md
-  DONE.md
-  DISCOVERY.md
-  POLLEN_RESPONSE.md
-  .supe/
-```
-
----
-
-## Verification status
-
-Fresh internal verification completed:
-- build ✅
-- typecheck ✅
-- git diff check ✅
-- automated tests ✅
-- npm pack dry-run ✅
-- runtime smoke (`claude --version`, `codex --version`) ✅
-
-Live validation status:
-- runtime smoke (`claude --version`, `codex --version`) ✅
-- `doctor --live` with `codex-cli` ✅
-- short local-CLI session smoke creates session artifacts ✅
-- final deliverable emission in long-running live sessions is still being tuned
-- real Claude plugin install path is still pending
-
----
-
-## Docs policy
-
-`README.md` and `docs/` are now being updated from **implemented reality**.
-If any doc conflicts with code, prefer code and `npm test` evidence.
-
-## Bilingual docs
-
-The maintained docs now ship in English/Korean pairs:
-- `docs/OVERVIEW.md` / `docs/OVERVIEW_KR.md`
-- `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE_KR.md`
-- `docs/CLI_SPEC.md` / `docs/CLI_SPEC_KR.md`
-- `docs/DATA_MODELS.md` / `docs/DATA_MODELS_KR.md`
-
-Historical reference docs also now have Korean archive companions:
-- `docs/IMPLEMENTATION_PLAN.md` / `docs/IMPLEMENTATION_PLAN_KR.md`
-- `docs/POLLEN_ENGINE.md` / `docs/POLLEN_ENGINE_KR.md`
-- `docs/SLACK_INTEGRATION.md` / `docs/SLACK_INTEGRATION_KR.md`
-- `docs/UNIVERSE_RUNNER.md` / `docs/UNIVERSE_RUNNER_KR.md`
-
-## License
-
-MIT
+When docs disagree, prefer:
+1. `src/`
+2. `test/`
+3. `schemas/`
+4. these docs
