@@ -13,6 +13,10 @@ import type {
   UniverseMetrics,
 } from '../types.js';
 import { getAgentRunner } from '../agents/base.js';
+import { ConversationManager } from '../runtime/conversation-manager.js';
+import type { RuntimeEvent } from '../runtime/contracts.js';
+import { deriveCurrentStepLabelFromEvent } from '../runtime/progress-mapper.js';
+import { createConversationProvider } from '../runtime/providers/index.js';
 import {
   initRepo,
   createGit,
@@ -37,6 +41,7 @@ export class UniverseRunner {
   private agentConfigs: Record<string, AgentConfig>;
   private stopRequested = false;
   private currentProc: ChildProcess | null = null;
+  private conversationManager: ConversationManager | null = null;
 
   constructor(
     emitter: EventEmitter,
@@ -96,29 +101,49 @@ export class UniverseRunner {
       symbol: universe.config.symbol,
     });
 
+    const agentConfig = this.agentConfigs[universe.config.agent];
+    if (!agentConfig) throw new Error(`No config for agent: ${universe.config.agent}`);
+
+    const initialPrompt = await buildPrompt(universe.config, this.session.spec.parsed);
+    const provider = createConversationProvider(universe.config.agent, agentConfig, universe.workdir);
+    this.conversationManager = new ConversationManager(universe, provider, {
+      onRuntimeEvent: (event) => {
+        this.onRuntimeEvent(universe, event);
+      },
+    });
+    await this.conversationManager.startOrResume(initialPrompt);
+
     let previousResult: 'success' | 'failed' | 'first' = 'first';
 
     while (true) {
       if (this.shouldStop(universe)) break;
 
       const context = await this.buildIterationContext(universe, previousResult);
-
-      const exitCode = await this.runAgentIteration(universe, context);
-      previousResult = exitCode === 0 ? 'success' : 'failed';
-
-      if (exitCode === 0) {
+      try {
+        await this.conversationManager.sendTurn({
+          text: this.buildDynamicPrompt(universe, context),
+          submittedAt: new Date().toISOString(),
+        });
+        previousResult = 'success';
         universe.restartCount = 0;
-      } else {
+      } catch (error) {
+        previousResult = 'failed';
         universe.restartCount++;
         this.emitter.emit('universe:failed', {
           universeId: universe.id,
           symbol: universe.config.symbol,
-          error: `Exit code ${exitCode}`,
+          error: error instanceof Error ? error.message : String(error),
           restartCount: universe.restartCount,
         });
       }
 
       await this.updateProgress(universe);
+
+      if (universe.runtimeSession?.state === 'waiting_for_user') {
+        universe.status = 'stopped';
+        universe.error = universe.runtimeSession.pendingQuestion ?? 'Waiting for user input';
+        break;
+      }
 
       if (await this.isComplete(universe)) {
         universe.status = 'completed';
@@ -132,6 +157,8 @@ export class UniverseRunner {
     universe.completedAt = new Date().toISOString();
     universe.metrics = await this.collectMetrics(universe);
     await this.saveState(universe);
+    await this.conversationManager?.close();
+    this.conversationManager = null;
 
     this.emitter.emit('universe:completed', {
       universeId: universe.id,
@@ -145,6 +172,7 @@ export class UniverseRunner {
     if (this.currentProc) {
       this.currentProc.kill('SIGTERM');
     }
+    void this.conversationManager?.interrupt();
   }
 
   private async buildIterationContext(
@@ -334,6 +362,20 @@ export class UniverseRunner {
     universe.progress.estimatedCostUsd = universe.agentProcess.iterationCount * 0.8;
 
     await this.saveState(universe);
+
+    this.emitter.emit('universe:progress', {
+      universeId: universe.id,
+      symbol: universe.config.symbol,
+      progress: universe.progress,
+    });
+  }
+
+  private onRuntimeEvent(universe: Universe, event: RuntimeEvent): void {
+    const currentStep = deriveCurrentStepLabelFromEvent(event);
+    if (currentStep) {
+      universe.progress.currentPhase = currentStep;
+    }
+    universe.progress.lastActivityAt = event.timestamp;
 
     this.emitter.emit('universe:progress', {
       universeId: universe.id,
