@@ -211,6 +211,7 @@ function createInkRuntimePresentation(
         statusMessage: 'syncing universes...',
         pollenEnabled: session.config.pollenEnabled,
         pulseActive: true,
+        detailLines: buildDetailLines(session),
       };
 
       const dashboard = mountSessionDashboard(props, {
@@ -225,6 +226,7 @@ function createInkRuntimePresentation(
           ...props,
           nowIso: now().toISOString(),
           width: io.stdout.columns ?? props.width ?? 100,
+          detailLines: buildDetailLines(session),
         });
       };
 
@@ -332,6 +334,34 @@ function createInkRuntimePresentation(
       };
     },
   };
+}
+
+function buildDetailLines(session: Session): string[] {
+  const focusedUniverse = session.universes.find((universe) => universe.runtimeSession?.pendingQuestion)
+    ?? session.universes.find((universe) => universe.runtimeSession?.state === 'thinking' || universe.runtimeSession?.state === 'tool_running')
+    ?? session.universes[0];
+
+  if (!focusedUniverse) {
+    return [];
+  }
+
+  const runtimeSession = focusedUniverse.runtimeSession;
+  const lines = [
+    `${focusedUniverse.config.symbol} ${focusedUniverse.config.name} (${focusedUniverse.config.agent})`,
+    `state: ${runtimeSession?.state ?? focusedUniverse.status}`,
+    `step: ${runtimeSession?.currentStep ?? focusedUniverse.progress.currentPhase}`,
+  ];
+
+  if (runtimeSession?.pendingQuestion) {
+    lines.push(`waiting: ${runtimeSession.pendingQuestion}`);
+  }
+
+  const tail = runtimeSession?.transcriptTail?.slice(-2) ?? [];
+  for (const entry of tail) {
+    lines.push(`tail: ${entry.slice(0, 80)}`);
+  }
+
+  return lines;
 }
 
 function createConsoleRuntimePresentation(io: RuntimePresentationIo): RuntimePresentation {

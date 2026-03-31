@@ -20,6 +20,7 @@ import {
   loadSelectedSession,
 } from '../app/session-service.js';
 import { stopSession } from '../app/stop-service.js';
+import { queueUniverseReplyAndSave } from '../app/runtime-control-service.js';
 import { prepareSessionForRun, runPreparedSession } from '../app/run-service.js';
 import { diagnoseSupeEnvironment } from '../app/setup-service.js';
 import { SessionManager } from '../core/session.js';
@@ -136,6 +137,8 @@ const TOOLS: McpToolDefinition[] = [
       required: ['sessionId'],
       properties: {
         sessionId: { type: 'string' },
+        reply: { type: 'string' },
+        universe: { type: 'string' },
       },
     },
   },
@@ -432,7 +435,11 @@ async function callTool(
       if (!session) {
         throw new SupeServiceError('not_found', `Session ${sessionId} was not found.`);
       }
-      const resumed = await runPreparedSession(sessionManager, session, config, {
+      const reply = asOptionalString(args.reply);
+      const preparedSession = reply
+        ? await queueUniverseReplyAndSave(sessionManager, session, asOptionalString(args.universe), reply)
+        : session;
+      const resumed = await runPreparedSession(sessionManager, preparedSession, config, {
         jsonMode: true,
         isTTY: false,
       });

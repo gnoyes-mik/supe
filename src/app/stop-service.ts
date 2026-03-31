@@ -15,6 +15,13 @@ export async function stopSession(
 
   const killedProcesses: Array<{ pid: number; symbol: string }> = [];
   for (const universe of session.universes) {
+    if (universe.runtimeSession) {
+      universe.runtimeSession.state = 'failed';
+      universe.runtimeSession.currentStep = 'Session cancelled';
+      universe.runtimeSession.pendingQuestion = null;
+      universe.runtimeSession.pendingReply = null;
+      universe.runtimeSession.lastActivityAt = new Date().toISOString();
+    }
     if (universe.agentProcess.pid) {
       try {
         process.kill(universe.agentProcess.pid, 'SIGTERM');

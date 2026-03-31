@@ -15,6 +15,7 @@ export function createRuntimeSessionRecord(
     lastActivityAt: nowIso,
     lastSequence: 0,
     pendingQuestion: null,
+    pendingReply: null,
     transcriptTail: [],
   };
 }

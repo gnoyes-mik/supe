@@ -113,12 +113,15 @@ test('dashboard lines render opening line, live rows, and activity summary', () 
     pulseFrame: 2,
     width: 100,
     pollenEnabled: true,
+    detailLines: ['α Alpha (codex)', 'state: thinking', 'tail: latest output'],
   });
 
   assert.ok(lines.includes('Opening rifts in spacetime...'));
   assert.ok(lines.some((line) => line.includes('α') && line.includes('CODEX') && line.includes('THINKING')));
   assert.ok(lines.some((line) => line.includes('β') && line.includes('WAITING')));
   assert.ok(lines.some((line) => line.includes('1 waiting for user')));
+  assert.ok(lines.some((line) => line.includes('Focused universe:')));
+  assert.ok(lines.some((line) => line.includes('tail: latest output')));
 });
 
 test('attachSessionPresenter mounts Ink once in interactive TTY mode and rerenders on events', () => {

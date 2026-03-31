@@ -70,6 +70,7 @@ export interface RuntimeSessionRecord {
   lastActivityAt: string | null;
   lastSequence: number;
   pendingQuestion: string | null;
+  pendingReply: string | null;
   transcriptTail: string[];
 }
 

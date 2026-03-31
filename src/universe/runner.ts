@@ -119,11 +119,17 @@ export class UniverseRunner {
       if (this.shouldStop(universe)) break;
 
       const context = await this.buildIterationContext(universe, previousResult);
+      const pendingReply = universe.runtimeSession?.pendingReply?.trim();
       try {
         await this.conversationManager.sendTurn({
-          text: this.buildDynamicPrompt(universe, context),
+          text: pendingReply && pendingReply.length > 0
+            ? pendingReply
+            : this.buildDynamicPrompt(universe, context),
           submittedAt: new Date().toISOString(),
         });
+        if (universe.runtimeSession) {
+          universe.runtimeSession.pendingReply = null;
+        }
         previousResult = 'success';
         universe.restartCount = 0;
       } catch (error) {

@@ -35,6 +35,7 @@ export async function statusCommand(sessionId?: string, opts: Record<string, unk
         universes: session.universes.map((universe) => ({
           ...sessionData.universes.find((entry) => entry.universeId === universe.id)!,
           progress: universe.progress,
+          runtimeSession: universe.runtimeSession,
         })),
       });
       return;
@@ -54,6 +55,12 @@ export async function statusCommand(sessionId?: string, opts: Record<string, unk
           `  ${universe.progress.filesCreated} files` +
           `  ${universe.progress.totalCommits} commits${statusSuffix}`
       );
+      if (universe.runtimeSession) {
+        console.log(`  runtime: ${universe.runtimeSession.state} | ${universe.runtimeSession.currentStep ?? 'n/a'}`);
+        if (universe.runtimeSession.pendingQuestion) {
+          console.log(`  waiting: ${universe.runtimeSession.pendingQuestion}`);
+        }
+      }
     }
 
     console.log('');

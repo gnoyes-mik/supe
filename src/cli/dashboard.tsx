@@ -45,6 +45,7 @@ export interface DashboardFrameProps {
   statusMessage?: string | null;
   pollenEnabled?: boolean;
   pulseActive?: boolean;
+  detailLines?: string[];
 }
 
 export interface MountInkDashboardOptions {
@@ -98,6 +99,9 @@ export function renderDashboardFrame(input: DashboardFrameProps): string[] {
     '',
     ...input.model.rows.map((row) => formatUniverseRow(row, input.nowIso, width)),
     '',
+    ...(input.detailLines && input.detailLines.length > 0
+      ? ['Focused universe:', ...input.detailLines, '']
+      : []),
     `Activity summary | completed ${summary.completedCount} | waiting ${summary.waitingCount} | failed ${summary.failedCount}`,
     `Multiverse activity | ${summary.activeCount} universes active | ${summary.toolCount} tool lanes active | ${summary.waitingCount} waiting for user`,
   ];

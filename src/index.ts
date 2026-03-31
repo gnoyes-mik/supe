@@ -79,6 +79,8 @@ program
   .option('--json', 'Emit machine-readable JSON output')
   .option('--non-interactive', 'Do not prompt; return machine-readable errors for missing input')
   .option('--yes', 'Auto-confirm prompts that would otherwise require manual confirmation')
+  .option('--reply <text>', 'Reply to a waiting universe before resuming')
+  .option('--universe <symbol-or-id>', 'Target universe symbol/id for --reply when multiple universes are waiting')
   .action(async (sessionId: string, opts: Record<string, unknown>) => {
     const { resumeCommand } = await import('./cli/commands/resume.js');
     await resumeCommand(sessionId, opts);

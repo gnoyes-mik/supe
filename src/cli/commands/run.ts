@@ -20,6 +20,7 @@ import {
   prepareSessionForRun,
   runPreparedSession,
 } from '../../app/run-service.js';
+import { queueUniverseReplyAndSave } from '../../app/runtime-control-service.js';
 import { loadSpecificSession } from '../../app/session-service.js';
 import { ensureLlmConfigured } from '../../app/preflight-service.js';
 import { SessionManager } from '../../core/session.js';
@@ -56,6 +57,15 @@ export async function runCommand(opts: Record<string, unknown>): Promise<void> {
         throw new SupeServiceError('not_found', `Session ${resumeId} was not found.`);
       }
       session = resumed;
+      const reply = getStringOpt(opts.reply);
+      if (reply) {
+        session = await queueUniverseReplyAndSave(
+          sessionManager,
+          session,
+          getStringOpt(opts.universe),
+          reply,
+        );
+      }
       logger.info('cli', `Resuming session ${session.id}`);
     } else {
       ensureLlmConfigured(config);
