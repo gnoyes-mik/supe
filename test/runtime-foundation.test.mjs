@@ -26,6 +26,7 @@ import {
   deriveCurrentStepLabelFromEvent,
   deriveRuntimeSessionStateFromEvent,
 } from '../dist/runtime/progress-mapper.js';
+import { ConversationManager } from '../dist/runtime/conversation-manager.js';
 
 test('conversation provider contracts freeze codex app-server and claude stream-json decisions', () => {
   assert.deepEqual(CONVERSATION_PROVIDER_CONTRACTS.codex, {
@@ -235,4 +236,122 @@ test('progress mapper derives state and current step labels from canonical event
 
   assert.equal(deriveRuntimeSessionStateFromEvent(event), 'tool_running');
   assert.equal(deriveCurrentStepLabelFromEvent(event), 'Bash: npm test');
+});
+
+test('conversation manager persists runtime events and updates universe session state', async () => {
+  const emitted = [];
+  const provider = {
+    provider: 'codex',
+    subscribe(listener) {
+      this.listener = listener;
+      return () => {
+        this.listener = null;
+      };
+    },
+    async startSession({ universeId }) {
+      this.listener?.({
+        type: 'session_started',
+        universeId,
+        provider: 'codex',
+        sequence: 1,
+        timestamp: '2026-03-31T00:00:00.000Z',
+        externalSessionId: 'thread_123',
+      });
+      return { universeId, provider: 'codex', externalSessionId: 'thread_123' };
+    },
+    async resumeSession() {
+      throw new Error('not used');
+    },
+    async sendTurn(handle, turn) {
+      this.listener?.({
+        type: 'assistant_delta',
+        universeId: handle.universeId,
+        provider: 'codex',
+        sequence: 2,
+        timestamp: '2026-03-31T00:00:01.000Z',
+        text: turn.text,
+      });
+      this.listener?.({
+        type: 'needs_user_input',
+        universeId: handle.universeId,
+        provider: 'codex',
+        sequence: 3,
+        timestamp: '2026-03-31T00:00:02.000Z',
+        question: 'Need clarification',
+      });
+    },
+    async interrupt() {},
+    async close() {},
+  };
+
+  const universeWorkdir = await mkdtemp(join(tmpdir(), 'supe-conversation-manager-'));
+  try {
+    const universe = {
+      id: 'univ_456',
+      sessionId: 'ses_456',
+      config: {
+        name: 'Alpha',
+        symbol: 'α',
+        approach: 'test',
+        optimizationAxis: 'speed',
+        tools: [],
+        agent: 'codex',
+        estimatedStrength: '',
+        estimatedWeakness: '',
+      },
+      status: 'running',
+      workdir: universeWorkdir,
+      gitBranch: 'universe/alpha',
+      promptPath: join(universeWorkdir, 'PROMPT.md'),
+      agentProcess: {
+        pid: null,
+        command: '',
+        args: [],
+        startedAt: null,
+        iterationCount: 0,
+        lastIterationAt: null,
+      },
+      progress: {
+        percentage: 0,
+        currentPhase: 'Preparing',
+        filesCreated: 0,
+        totalCommits: 0,
+        lastCommitMessage: '',
+        lastActivityAt: '2026-03-31T00:00:00.000Z',
+        estimatedCostUsd: 0,
+        criteriaProgress: [],
+      },
+      metrics: null,
+      logs: [],
+      runtimeSession: null,
+      startedAt: '2026-03-31T00:00:00.000Z',
+      completedAt: null,
+      error: null,
+      restartCount: 0,
+      pendingPollens: [],
+    };
+
+    const manager = new ConversationManager(universe, provider, {
+      onRuntimeEvent(event) {
+        emitted.push(event.type);
+      },
+    });
+
+    const handle = await manager.startOrResume('hello');
+    assert.equal(handle.externalSessionId, 'thread_123');
+    await manager.reply('follow up');
+
+    assert.equal(universe.runtimeSession.externalSessionId, 'thread_123');
+    assert.equal(universe.runtimeSession.state, 'waiting_for_user');
+    assert.equal(universe.runtimeSession.pendingQuestion, 'Need clarification');
+    assert.deepEqual(universe.runtimeSession.transcriptTail, ['follow up']);
+    assert.deepEqual([...emitted].sort(), ['assistant_delta', 'needs_user_input', 'session_started']);
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const events = await readRuntimeEvents(universeWorkdir);
+    assert.equal(events.length, 3);
+    assert.ok(events.some((event) => event.type === 'needs_user_input'));
+  } finally {
+    await rm(universeWorkdir, { recursive: true, force: true });
+  }
 });

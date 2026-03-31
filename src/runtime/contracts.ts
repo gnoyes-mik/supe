@@ -109,6 +109,7 @@ export type RuntimeEvent =
   | FailedRuntimeEvent;
 
 export type ControlPlaneAction = 'reply' | 'cancel' | 'interrupt' | 'timeout';
+export type RuntimeEventListener = (event: RuntimeEvent) => void;
 
 export interface ConversationProviderStartOptions {
   universeId: string;
@@ -132,6 +133,7 @@ export interface ConversationProviderContract {
 
 export interface ConversationProvider {
   readonly provider: AgentType;
+  subscribe(listener: RuntimeEventListener): () => void;
   startSession(options: ConversationProviderStartOptions): Promise<RuntimeSessionHandle>;
   resumeSession(options: ConversationProviderResumeOptions): Promise<RuntimeSessionHandle>;
   sendTurn(handle: RuntimeSessionHandle, turn: RuntimeTurnInput): Promise<void>;
