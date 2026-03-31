@@ -43,7 +43,8 @@ function makeSession() {
         completedAt: null,
         error: 'waiting',
         restartCount: 0,
-        pendingPollens: [],
+        usageSummary: null,
+    pendingPollens: [],
       },
     ],
   };

@@ -87,6 +87,14 @@ export interface HeartbeatRuntimeEvent extends RuntimeEventBase {
 
 export interface CompletedRuntimeEvent extends RuntimeEventBase {
   type: 'completed';
+  totalCostUsd: number | null;
+  model: string | null;
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cacheCreationInputTokens: number;
+    cacheReadInputTokens: number;
+  } | null;
 }
 
 export interface FailedRuntimeEvent extends RuntimeEventBase {

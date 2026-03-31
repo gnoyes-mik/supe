@@ -17,7 +17,8 @@ export class MetricsCollector {
     ]);
 
     const durationMs = this.calculateDurationMs(universe);
-    const estimatedCostUsd = Number((universe.agentProcess.iterationCount * 0.05).toFixed(2));
+    const estimatedCostUsd = universe.usageSummary?.totalCostUsd
+      ?? Number((universe.agentProcess.iterationCount * 0.05).toFixed(2));
     const pollenStats = this.collectPollenStats(universe.id);
 
     const baseMetrics: UniverseMetrics = {

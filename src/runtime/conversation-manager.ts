@@ -1,4 +1,5 @@
-import type { Universe } from '../types.js';
+import type { Universe, TurnUsage } from '../types.js';
+import { createEmptyUsageSummary, addTurnToUsageSummary } from '../utils/usage.js';
 import {
   appendRuntimeEvent,
 } from './event-log.js';
@@ -182,6 +183,18 @@ export class ConversationManager {
       next = updateRuntimeSessionRecord(next, {
         pendingQuestion: null,
       });
+    }
+
+    if (event.type === 'completed' && event.usage) {
+      const summary = this.universe.usageSummary ?? createEmptyUsageSummary();
+      const turn: TurnUsage = {
+        turnIndex: summary.turns.length,
+        model: event.model,
+        usage: event.usage,
+        costUsd: event.totalCostUsd ?? 0,
+        timestamp: event.timestamp,
+      };
+      this.universe.usageSummary = addTurnToUsageSummary(summary, turn);
     }
 
     next = updateRuntimeSessionRecord(next, {

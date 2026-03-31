@@ -164,6 +164,7 @@ test('presenter rows derive universe runtime state, progress, and highlight from
     completedAt: null,
     error: null,
     restartCount: 0,
+    usageSummary: null,
     pendingPollens: [],
   };
 
@@ -328,7 +329,8 @@ test('conversation manager persists runtime events and updates universe session 
       completedAt: null,
       error: null,
       restartCount: 0,
-      pendingPollens: [],
+      usageSummary: null,
+    pendingPollens: [],
     };
 
     const manager = new ConversationManager(universe, provider, {
