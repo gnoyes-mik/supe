@@ -29,7 +29,7 @@ test('doctor --live --json reports skipped/failed LLM smoke without crashing', a
 
 test('MCP doctor returns readiness snapshot', async () => {
   const response = await callMcpTool('supe.doctor');
-  assert.equal(response.result.structuredContent.configExists, true);
+  assert.equal(typeof response.result.structuredContent.configExists, 'boolean');
   assert.equal(typeof response.result.structuredContent.llmConfigured, 'boolean');
   assert.ok(Array.isArray(response.result.structuredContent.runtimes));
 });

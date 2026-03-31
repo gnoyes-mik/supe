@@ -36,7 +36,7 @@ export function callMcpTool(name, args = {}) {
       cwd: repoRoot,
       stdio: ['pipe', 'pipe', 'inherit'],
     });
-    let buffer = '';
+    let buffer = Buffer.alloc(0);
 
     function send(msg) {
       const body = JSON.stringify(msg);
@@ -45,28 +45,35 @@ export function callMcpTool(name, args = {}) {
 
     function read() {
       return new Promise((resolveMessage, rejectMessage) => {
+        const onExit = (code, signal) => {
+          proc.stdout.off('data', onData);
+          rejectMessage(new Error(`mcp exited ${code ?? signal}`));
+        };
         const onData = (chunk) => {
-          buffer += chunk.toString();
+          buffer = Buffer.concat([buffer, chunk]);
           while (true) {
-            const headerEnd = buffer.indexOf('\r\n\r\n');
+            const headerEnd = buffer.indexOf(Buffer.from('\r\n\r\n'));
             if (headerEnd < 0) return;
-            const match = buffer.slice(0, headerEnd).match(/Content-Length:\s*(\d+)/i);
+            const headerText = buffer.slice(0, headerEnd).toString('utf8');
+            const match = headerText.match(/Content-Length:\s*(\d+)/i);
             if (!match) {
+              proc.off('exit', onExit);
               rejectMessage(new Error('Missing Content-Length'));
               return;
             }
             const length = Number(match[1]);
             const bodyStart = headerEnd + 4;
             if (buffer.length < bodyStart + length) return;
-            const body = buffer.slice(bodyStart, bodyStart + length);
+            const body = buffer.slice(bodyStart, bodyStart + length).toString('utf8');
             buffer = buffer.slice(bodyStart + length);
             proc.stdout.off('data', onData);
+            proc.off('exit', onExit);
             resolveMessage(JSON.parse(body));
             return;
           }
         };
         proc.stdout.on('data', onData);
-        proc.on('exit', (code) => rejectMessage(new Error(`mcp exited ${code}`)));
+        proc.on('exit', onExit);
       });
     }
 

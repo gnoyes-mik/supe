@@ -1,6 +1,7 @@
 import { join } from 'path';
 import type { Report, Session, Universe } from '../types.js';
 import { getSessionsDir } from '../utils/config.js';
+import { CONVERSATION_PROVIDER_CONTRACTS } from '../runtime/contracts.js';
 
 export const SUPE_CONTRACT_VERSION = '2026-03-30';
 
@@ -86,7 +87,12 @@ export interface RuntimeAdapterContract {
   runtime: 'claude' | 'codex';
   supportsStreamingOutput: boolean;
   supportsNonInteractiveExecution: boolean;
-  promptTransport: 'arg' | 'stdin' | 'file';
+  supportsConversationalSessions: boolean;
+  supportsSessionResume: boolean;
+  supportsStructuredUserInput: boolean;
+  promptTransport: 'arg' | 'stdin' | 'file' | 'rpc';
+  interactiveTransport: 'stream-json' | 'app-server';
+  canonicalTtyPresenter: 'ink';
 }
 
 export const HOST_CAPABILITIES_REGISTRY: Record<HostCapabilities['host'], HostCapabilities> = {
@@ -123,17 +129,29 @@ export const HOST_CAPABILITIES_REGISTRY: Record<HostCapabilities['host'], HostCa
 export const RUNTIME_ADAPTER_CONTRACTS: Record<RuntimeAdapterContract['runtime'], RuntimeAdapterContract> = {
   claude: {
     runtime: 'claude',
-    supportsStreamingOutput: false,
+    supportsStreamingOutput: true,
     supportsNonInteractiveExecution: true,
-    promptTransport: 'arg',
+    supportsConversationalSessions: true,
+    supportsSessionResume: true,
+    supportsStructuredUserInput: false,
+    promptTransport: 'stdin',
+    interactiveTransport: 'stream-json',
+    canonicalTtyPresenter: 'ink',
   },
   codex: {
     runtime: 'codex',
-    supportsStreamingOutput: false,
+    supportsStreamingOutput: true,
     supportsNonInteractiveExecution: true,
-    promptTransport: 'arg',
+    supportsConversationalSessions: true,
+    supportsSessionResume: true,
+    supportsStructuredUserInput: true,
+    promptTransport: 'rpc',
+    interactiveTransport: 'app-server',
+    canonicalTtyPresenter: 'ink',
   },
 };
+
+export const CONVERSATION_PROVIDER_REGISTRY = CONVERSATION_PROVIDER_CONTRACTS;
 
 export function makeSessionArtifactPaths(session: Session): SessionArtifactPaths {
   const sessionPath = join(getSessionsDir(), session.id);

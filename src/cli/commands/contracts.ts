@@ -27,7 +27,20 @@ export async function contractsCommand(opts: Record<string, unknown> = {}): Prom
     }
     console.log('Runtime contracts:');
     for (const [name, value] of Object.entries(snapshot.runtimeContracts)) {
-      console.log(`- ${name}: nonInteractive=${value.supportsNonInteractiveExecution} promptTransport=${value.promptTransport}`);
+      console.log(
+        `- ${name}: nonInteractive=${value.supportsNonInteractiveExecution} streaming=${value.supportsStreamingOutput} ` +
+          `conversation=${value.supportsConversationalSessions} resume=${value.supportsSessionResume} ` +
+          `structuredInput=${value.supportsStructuredUserInput} promptTransport=${value.promptTransport} ` +
+          `interactiveTransport=${value.interactiveTransport} tty=${value.canonicalTtyPresenter}`,
+      );
+    }
+    console.log('Conversation providers:');
+    for (const [name, value] of Object.entries(snapshot.conversationProviders)) {
+      console.log(
+        `- ${name}: transport=${value.transport} longLived=${value.supportsLongLivedSessions} ` +
+          `streaming=${value.supportsStreamingDeltas} resume=${value.supportsSessionResume} ` +
+          `structuredInput=${value.supportsStructuredUserInput} tty=${value.canonicalTtyPresenter}`,
+      );
     }
     console.log('Schema paths:');
     for (const [name, value] of Object.entries(snapshot.schemaPaths)) {

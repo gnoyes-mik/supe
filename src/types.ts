@@ -47,6 +47,31 @@ export interface SessionConfig {
 
 export type AgentType = 'claude' | 'codex';
 
+export type RuntimeTransport = 'app-server' | 'stream-json';
+
+export type RuntimeSessionState =
+  | 'booting'
+  | 'ready'
+  | 'thinking'
+  | 'tool_running'
+  | 'writing_output'
+  | 'waiting_for_user'
+  | 'paused'
+  | 'completed'
+  | 'failed';
+
+export interface RuntimeSessionRecord {
+  provider: AgentType;
+  transport: RuntimeTransport;
+  externalSessionId: string | null;
+  state: RuntimeSessionState;
+  currentStep: string | null;
+  lastActivityAt: string | null;
+  lastSequence: number;
+  pendingQuestion: string | null;
+  transcriptTail: string[];
+}
+
 export interface SessionSlackState {
   channel: string; // Slack 채널 ID
   mainMessageTs: string; // 세션 메인 메시지의 ts (timestamp)
@@ -116,6 +141,7 @@ export interface Universe {
   progress: UniverseProgress;
   metrics: UniverseMetrics | null; // 완료 후 수집
   logs: LogEntry[]; // 메모리에 최근 N개만 유지, 전체는 logs.jsonl
+  runtimeSession: RuntimeSessionRecord | null;
   startedAt: string | null;
   completedAt: string | null;
   error: string | null;
