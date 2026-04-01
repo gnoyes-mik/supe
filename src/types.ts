@@ -142,6 +142,7 @@ export interface Universe {
   agentProcess: AgentProcessState;
   progress: UniverseProgress;
   metrics: UniverseMetrics | null; // 완료 후 수집
+  usageSummary: UniverseUsageSummary | null; // 실시간 토큰 사용량 추적
   logs: LogEntry[]; // 메모리에 최근 N개만 유지, 전체는 logs.jsonl
   runtimeSession: RuntimeSessionRecord | null;
   startedAt: string | null;
@@ -176,6 +177,30 @@ export interface UniverseProgress {
   lastActivityAt: string; // ISO 8601
   estimatedCostUsd: number;
   criteriaProgress: CriterionStatus[]; // NEW: Iteration context
+}
+
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+}
+
+export interface TurnUsage {
+  turnIndex: number;
+  model: string | null;
+  usage: TokenUsage;
+  costUsd: number;
+  timestamp: string;
+}
+
+export interface UniverseUsageSummary {
+  turns: TurnUsage[];
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheCreationTokens: number;
+  totalCacheReadTokens: number;
+  totalCostUsd: number;
 }
 
 export interface UniverseMetrics {

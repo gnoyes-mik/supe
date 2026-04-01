@@ -53,6 +53,7 @@ interface UniverseProgressPayload {
     lastCommitMessage: string;
     currentPhase: string;
     lastActivityAt?: string;
+    estimatedCostUsd: number;
     criteriaProgress: Array<{ criterion: string; status: string }>;
   };
 }
@@ -350,6 +351,7 @@ function buildDetailLines(session: Session): string[] {
     `${focusedUniverse.config.symbol} ${focusedUniverse.config.name} (${focusedUniverse.config.agent})`,
     `state: ${runtimeSession?.state ?? focusedUniverse.status}`,
     `step: ${runtimeSession?.currentStep ?? focusedUniverse.progress.currentPhase}`,
+    `cost: ${focusedUniverse.usageSummary ? `$${focusedUniverse.usageSummary.totalCostUsd.toFixed(4)}` : '--'}`,
   ];
 
   if (runtimeSession?.pendingQuestion) {
@@ -466,6 +468,10 @@ function attachConsoleProgress(emitter: EventEmitter, session: Session, stdout: 
         parts.push(`  criteria ${doneCount}/${data.progress.criteriaProgress.length}`);
       }
 
+      if (data.progress.estimatedCostUsd > 0) {
+        parts.push(`  cost: $${data.progress.estimatedCostUsd.toFixed(4)}`);
+      }
+
       console.log(parts.join(''));
     }
 
@@ -478,7 +484,11 @@ function attachConsoleProgress(emitter: EventEmitter, session: Session, stdout: 
   };
 
   const onCompleted = (data: UniverseSimplePayload) => {
-    console.log(`${ts()} [${data.symbol}] ✓ Completed`);
+    const completedUniverse = session.universes.find((u) => u.id === data.universeId);
+    const costDisplay = completedUniverse?.usageSummary
+      ? ` ($${completedUniverse.usageSummary.totalCostUsd.toFixed(4)})`
+      : '';
+    console.log(`${ts()} [${data.symbol}] ✓ Completed${costDisplay}`);
   };
 
   const onFailed = (data: UniverseFailurePayload) => {

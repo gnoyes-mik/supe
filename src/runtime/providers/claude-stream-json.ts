@@ -292,9 +292,22 @@ export class ClaudeStreamJsonProvider implements ConversationProvider {
         });
         active.rejectTurn?.(new Error(message));
       } else {
+        const totalCostUsd = this.readNumber(parsed.total_cost_usd);
+        const model = this.readString(parsed.model) ?? this.extractModelFromModelUsage(parsed.modelUsage);
+        const rawUsage = parsed.usage as Record<string, unknown> | undefined;
+        const usage = rawUsage ? {
+          inputTokens: this.readNumber(rawUsage.input_tokens) ?? 0,
+          outputTokens: this.readNumber(rawUsage.output_tokens) ?? 0,
+          cacheCreationInputTokens: this.readNumber(rawUsage.cache_creation_input_tokens) ?? 0,
+          cacheReadInputTokens: this.readNumber(rawUsage.cache_read_input_tokens) ?? 0,
+        } : null;
+
         this.emit({
           type: 'completed',
           universeId: active.handle.universeId,
+          totalCostUsd,
+          model,
+          usage,
         });
         active.resolveTurn?.();
       }
@@ -340,6 +353,16 @@ export class ClaudeStreamJsonProvider implements ConversationProvider {
 
   private readString(value: unknown): string | null {
     return typeof value === 'string' && value.length > 0 ? value : null;
+  }
+
+  private readNumber(value: unknown): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  private extractModelFromModelUsage(modelUsage: unknown): string | null {
+    if (!modelUsage || typeof modelUsage !== 'object') return null;
+    const keys = Object.keys(modelUsage as Record<string, unknown>);
+    return keys.length > 0 ? keys[0] : null;
   }
 
 }

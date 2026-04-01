@@ -365,7 +365,8 @@ export class UniverseRunner {
     universe.progress.filesCreated = await getFileCount(git);
     universe.progress.percentage = calculatePercentage(universe.progress.criteriaProgress);
     universe.progress.lastActivityAt = new Date().toISOString();
-    universe.progress.estimatedCostUsd = universe.agentProcess.iterationCount * 0.8;
+    universe.progress.estimatedCostUsd = universe.usageSummary?.totalCostUsd
+      ?? universe.agentProcess.iterationCount * 0.8;
 
     await this.saveState(universe);
 
@@ -411,7 +412,7 @@ export class UniverseRunner {
       totalFiles: fileCount,
       totalCommits: commitCount,
       durationMs: Date.now() - new Date(universe.startedAt ?? Date.now()).getTime(),
-      estimatedCostUsd: universe.progress.estimatedCostUsd,
+      estimatedCostUsd: universe.usageSummary?.totalCostUsd ?? universe.progress.estimatedCostUsd,
       pollenEmitted,
       pollenReceived,
       pollenApplied,
@@ -437,6 +438,7 @@ export class UniverseRunner {
         iterationCount: universe.agentProcess.iterationCount,
         lastIterationAt: universe.agentProcess.lastIterationAt,
       },
+      usageSummary: universe.usageSummary ?? null,
       restartCount: universe.restartCount,
       error: universe.error,
     };
